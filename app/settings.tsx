@@ -19,7 +19,10 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()}><Text style={{ color: theme.accent, fontWeight: '700' }}>Back</Text></Pressable>
         <Title theme={theme}>Settings</Title>
         <Button theme={theme} label="Notifications" onPress={() => router.push('/notifications')} />
-        <Button theme={theme} label="Privacy" onPress={() => router.push('/privacy')} />
+        <Button theme={theme} label="Privacy & data" onPress={() => router.push('/privacy')} />
+        <Button theme={theme} label="Privacy Policy" onPress={() => router.push('/privacy-policy')} />
+        <Button theme={theme} label="Terms of Service" onPress={() => router.push('/terms')} />
+        <Button theme={theme} label="Support" onPress={() => router.push('/support')} />
         <Button theme={theme} label="How the score works" onPress={() => router.push('/score')} />
         <Button theme={theme} label="About" onPress={() => router.push('/about')} />
         <Card theme={theme} style={{ gap: 8 }}>

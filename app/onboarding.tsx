@@ -39,7 +39,12 @@ export default function Onboarding() {
       await updateNotifications({ enabled: ok, reminderMode });
       if (ok && service && user && profile) {
         const plan = await service.reminderPlan(user.id);
-        await syncScheduledReminders(plan, { ...profile, wakeTime, sleepTime, breakfastTime, lunchTime, dinnerTime }, true);
+        await syncScheduledReminders(
+          plan,
+          { ...profile, wakeTime, sleepTime, breakfastTime, lunchTime, dinnerTime },
+          true,
+          { preferRemoteEngine: Boolean(user.firebaseUid) },
+        );
         if (user.firebaseUid) void registerPushForUser(user.firebaseUid);
       }
     } else if (enableNotifs === false) {
@@ -56,7 +61,7 @@ export default function Onboarding() {
       dinnerTime,
       reminderMode,
     });
-    router.replace('/(tabs)');
+    router.replace(user?.firebaseUid ? '/(tabs)' : '/auth');
   };
 
   return (
@@ -76,6 +81,13 @@ export default function Onboarding() {
             <Title theme={theme}>Welcome to DailyMe</Title>
             <Body theme={theme} style={{ fontSize: 18 }}>Take care of yourself, one day at a time.</Body>
             <Body theme={theme}>Understand your day. Build better habits. Feel better.</Body>
+            <Body theme={theme}>DailyMe is for adults 18 and older. You will need an account. DailyMe is wellness software, not medical care.</Body>
+            <Pressable onPress={() => router.push('/privacy-policy')} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>Privacy Policy</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/terms')} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ color: theme.accent, fontWeight: '700' }}>Terms of Service</Text>
+            </Pressable>
             <Button theme={theme} label="Get started" onPress={() => setStep(1)} />
           </View>
         ) : null}
@@ -181,6 +193,7 @@ export default function Onboarding() {
         {step === 7 ? (
           <View style={{ flex: 1, justifyContent: 'flex-end', gap: 16, paddingBottom: 24 }}>
             <Title theme={theme}>Would you like DailyMe to remind you throughout the day?</Title>
+            <Body theme={theme}>DailyMe uses reminders to help you stay on track with meals, water, hygiene, mood, sleep and daily habits.</Body>
             <Body theme={theme}>Never required. You can change this anytime.</Body>
             <Button theme={theme} label="Yes, enable reminders" onPress={() => void finish(true)} />
             <Button theme={theme} variant="soft" label="Not now" onPress={() => void finish(false)} />

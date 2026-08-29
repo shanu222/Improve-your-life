@@ -2,7 +2,9 @@ import { router } from 'expo-router';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Card, Screen, Title } from '../../src/components/ui';
+import { PasswordField } from '../../src/components/PasswordField';
 import { TimeStepper } from '../../src/components/TimeStepper';
+import { toUserMessage } from '../../src/domain/errors';
 import { levelFromXp } from '../../src/domain/xp';
 import { useAppStore } from '../../src/store/appStore';
 import { useAppTheme } from '../../src/theme';
@@ -64,12 +66,30 @@ export default function ProfileScreen() {
         }} />
         <Row label="Units" value={settings?.units ?? 'metric'} onPress={() => void updateSettings({ units: settings?.units === 'metric' ? 'imperial' : 'metric' })} />
 
-        <Button theme={theme} label={user?.firebaseUid ? 'Cloud account connected' : 'Sign in to DailyMe'} onPress={() => router.push('/auth')} />
-        {user?.firebaseUid ? (
-          <Button theme={theme} variant="ghost" label="Sign out of cloud" onPress={() => void signOutAccount()} />
-        ) : null}
+        <Card theme={theme} style={{ gap: 8 }}>
+          <Text style={{ color: theme.ink, fontWeight: '800' }}>Account</Text>
+          <Body theme={theme}>
+            {user?.email
+              ? `Signed in as ${user.email}${user.authProvider === 'google' ? ' with Google' : ''}.`
+              : 'Signed in.'}
+          </Body>
+          {user?.authProvider === 'password' ? (
+            <ChangePassword theme={theme} />
+          ) : null}
+          <Button
+            theme={theme}
+            variant="ghost"
+            label="Sign out"
+            onPress={() => {
+              void signOutAccount().then(() => router.replace('/auth'));
+            }}
+          />
+        </Card>
         <Button theme={theme} label="Notifications" onPress={() => router.push('/notifications')} />
         <Button theme={theme} variant="soft" label="Privacy & data" onPress={() => router.push('/privacy')} />
+        <Button theme={theme} variant="ghost" label="Terms of Service" onPress={() => router.push('/terms')} />
+        <Button theme={theme} variant="ghost" label="Privacy Policy" onPress={() => router.push('/privacy-policy')} />
+        <Button theme={theme} variant="ghost" label="Support" onPress={() => router.push('/support')} />
         <Button theme={theme} variant="ghost" label="Settings" onPress={() => router.push('/settings')} />
         <Button theme={theme} variant="ghost" label="About & disclaimer" onPress={() => router.push('/about')} />
       </ScrollView>
@@ -108,6 +128,46 @@ function Field({
           padding: 14,
           color: theme.ink,
           minHeight: 48,
+        }}
+      />
+    </View>
+  );
+}
+
+function ChangePassword({ theme }: { theme: ReturnType<typeof useAppTheme> }) {
+  const changePassword = useAppStore((s) => s.changePassword);
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  return (
+    <View style={{ gap: 8 }}>
+      <PasswordField theme={theme} label="Current password" placeholder="Current password" value={current} onChangeText={setCurrent} />
+      <PasswordField theme={theme} label="New password" placeholder="New password" value={next} onChangeText={setNext} />
+      {error ? <Body theme={theme}>{error}</Body> : null}
+      {done ? <Body theme={theme}>Password updated.</Body> : null}
+      <Button
+        theme={theme}
+        variant="soft"
+        label={busy ? 'Updating…' : 'Change password'}
+        disabled={busy || !current || next.length < 6}
+        onPress={() => {
+          void (async () => {
+            setBusy(true);
+            setError(null);
+            setDone(false);
+            try {
+              await changePassword(current, next);
+              setCurrent('');
+              setNext('');
+              setDone(true);
+            } catch (err) {
+              setError(toUserMessage(err));
+            } finally {
+              setBusy(false);
+            }
+          })();
         }}
       />
     </View>

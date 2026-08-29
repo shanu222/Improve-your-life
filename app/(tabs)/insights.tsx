@@ -23,8 +23,8 @@ export default function InsightsScreen() {
 
   useEffect(() => {
     if (!service || !user) return;
-    void service.insights(user.id).then(setInsights);
-    void service.generateWeeklyReport(user.id).then(setWeekly);
+    void service.insights(user.id).then(setInsights).catch(() => setInsights([]));
+    void service.generateWeeklyReport(user.id).then(setWeekly).catch(() => setWeekly(null));
     if (!user.firebaseUid || !profile) return;
     const end = getLocalDate(new Date(), profile.timezone);
     const start = addDays(end, -13);

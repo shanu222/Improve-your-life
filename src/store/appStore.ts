@@ -20,6 +20,7 @@ import { signOutCloud } from '../firebase/auth';
 import { safeCloudSync, syncNotificationPrefs, syncProfileToCloud } from '../firebase/sync';
 import { clearSyncQueue, enqueueAndSync, flushCloudEntries } from '../firebase/queue';
 import { apiDelete, apiPost } from '../lib/apiClient';
+import { startFcmRuntime } from '../lib/fcmBootstrap';
 import { unregisterPushForUser } from '../lib/push';
 
 type Snapshot = Awaited<ReturnType<DailyService['todaySnapshot']>>;
@@ -74,6 +75,7 @@ interface AppState {
   exportData: () => Promise<string | undefined>;
   deleteAllData: () => Promise<void>;
   signOutAccount: () => Promise<void>;
+  changePassword: (currentPassword: string, nextPassword: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -93,21 +95,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().booting) return;
     set({ booting: true, error: null });
     try {
-      const store = await loadPersistedStore();
+      const store = await Promise.race([
+        loadPersistedStore(),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('DailyMe took too long to open local data.')), 15000);
+        }),
+      ]);
       const service = new DailyService(store);
       const { user, profile, settings } = await service.bootstrap();
       const notif = await store.getNotificationPref(user.id);
       const today = await service.todaySnapshot(user.id);
-      set({ ready: true, booting: false, service, user, profile, settings, notif, today });
+      set({ ready: true, booting: false, service, user, profile, settings, notif, today, error: null });
       if (user.firebaseUid && firebaseConfigured()) {
+        void startFcmRuntime(user.firebaseUid, Boolean(notif?.enabled));
         void safeCloudSync(async () => {
-          await syncProfileToCloud(user.firebaseUid!, profile, user.email);
+          await syncProfileToCloud(user.firebaseUid!, profile, user.email, {
+            notificationEnabled: Boolean(notif?.enabled),
+          });
           await flushCloudEntries(user.firebaseUid!, today.entries);
         });
       }
     } catch (error) {
       logInternalError('hydrate', error);
-      set({ booting: false, ready: true, error: toUserMessage(error) });
+      set({ booting: false, ready: false, error: toUserMessage(error) });
     }
   },
 
@@ -221,7 +231,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ notif: next });
       const uid = get().user?.firebaseUid;
       if (uid) {
-        void safeCloudSync(() => syncNotificationPrefs(uid, next));
+        void safeCloudSync(() => syncNotificationPrefs(uid, next, get().profile?.timezone));
         void apiPost('/api/notifications/schedule', {
           enabled: next.enabled,
           quietHours: `${next.quietHoursStart}-${next.quietHoursEnd}`,
@@ -239,8 +249,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().run((api, id) => api.linkCloudAccount(id, patch));
     const { user, profile, today } = get();
     if (user?.firebaseUid && profile) {
+      void startFcmRuntime(user.firebaseUid, Boolean(get().notif?.enabled));
       void safeCloudSync(async () => {
-        await syncProfileToCloud(user.firebaseUid!, profile, user.email);
+        await syncProfileToCloud(user.firebaseUid!, profile, user.email, {
+          notificationEnabled: Boolean(get().notif?.enabled),
+        });
         await flushCloudEntries(user.firebaseUid!, today?.entries ?? []);
       });
     }
@@ -251,14 +264,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   deleteAllData: async () => {
     const { service, user } = get();
-    if (!service || !user) return;
+    if (!service || !user) throw new Error('DailyMe is not ready.');
     if (user.firebaseUid) {
-      try {
-        await unregisterPushForUser(user.firebaseUid);
-        await apiDelete('/api/account');
-      } catch (error) {
-        logInternalError('account.delete', error);
-      }
+      await unregisterPushForUser(user.firebaseUid);
+      await apiDelete('/api/account');
       await signOutCloud();
     }
     await service.deleteAllData(user.id);
@@ -282,6 +291,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().run((api, id) =>
       api.linkCloudAccount(id, { firebaseUid: undefined, authProvider: 'local' }),
     );
+  },
+  changePassword: async (currentPassword: string, nextPassword: string) => {
+    const { changeCloudPassword } = await import('../firebase/auth');
+    await changeCloudPassword(currentPassword, nextPassword);
   },
   clearError: () => set({ error: null }),
 }));

@@ -1,32 +1,33 @@
 import {
+  EmailAuthProvider,
   GoogleAuthProvider,
   createUserWithEmailAndPassword,
   fetchSignInMethodsForEmail,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin, isErrorWithCode, statusCodes } from '@react-native-google-signin/google-signin';
 import { AppError } from '../domain/errors';
 import { authConflictMessage, firebaseAuthUserMessage } from '../domain/authConflicts';
 import { getFirebaseAuth, firebaseConfigured } from './client';
-import { googleAndroidClientId, googleWebClientId } from '../auth/google';
+import { googleWebClientId } from '../auth/google';
 
-WebBrowser.maybeCompleteAuthSession();
+let googleConfigured = false;
 
-export { Google };
-
-export function useGoogleAuthRequest() {
-  const web = googleWebClientId();
-  const android = googleAndroidClientId();
-  return Google.useIdTokenAuthRequest({
-    clientId: web || undefined,
-    androidClientId: android || undefined,
-    webClientId: web || undefined,
+export function configureGoogleSignIn(): void {
+  if (googleConfigured) return;
+  const webClientId = googleWebClientId();
+  if (!webClientId) return;
+  GoogleSignin.configure({
+    webClientId,
+    offlineAccess: false,
   });
+  googleConfigured = true;
 }
 
 function requireAuth() {
@@ -84,6 +85,38 @@ export async function signInGoogleIdToken(idToken: string): Promise<FirebaseUser
   }
 }
 
+export async function signInWithGoogleNative(): Promise<FirebaseUser | 'cancelled'> {
+  configureGoogleSignIn();
+  if (!googleWebClientId()) {
+    throw new AppError('Google Sign-In is not configured for this build.', 'CONFIG');
+  }
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const result = await GoogleSignin.signIn();
+    if (result.type === 'cancelled') return 'cancelled';
+    const idToken = result.data?.idToken;
+    if (!idToken) {
+      throw new AppError('Google did not return a sign-in token. Try again.', 'AUTH');
+    }
+    return await signInGoogleIdToken(idToken);
+  } catch (error) {
+    if (error === 'cancelled' || (typeof error === 'object' && error && 'type' in error && (error as { type: string }).type === 'cancelled')) {
+      return 'cancelled';
+    }
+    if (isErrorWithCode(error)) {
+      if (error.code === statusCodes.SIGN_IN_CANCELLED) return 'cancelled';
+      if (error.code === statusCodes.IN_PROGRESS) {
+        throw new AppError('Google sign-in is already in progress.', 'AUTH');
+      }
+      if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        throw new AppError('Google Play services are required for Google Sign-In.', 'AUTH');
+      }
+    }
+    if (error instanceof AppError) throw error;
+    throw new AppError(mapErr(error), 'AUTH');
+  }
+}
+
 export async function requestPasswordReset(email: string): Promise<void> {
   const auth = requireAuth();
   try {
@@ -93,7 +126,28 @@ export async function requestPasswordReset(email: string): Promise<void> {
   }
 }
 
+export async function changeCloudPassword(currentPassword: string, nextPassword: string): Promise<void> {
+  const auth = requireAuth();
+  const user = auth.currentUser;
+  if (!user?.email) throw new AppError('Sign in with email and password to change your password.', 'AUTH');
+  if (nextPassword.trim().length < 6) throw new AppError('Please choose a longer password.', 'AUTH');
+  try {
+    const cred = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, cred);
+    await updatePassword(user, nextPassword);
+  } catch (error) {
+    throw new AppError(mapErr(error), 'AUTH');
+  }
+}
+
 export async function signOutCloud(): Promise<void> {
+  try {
+    if (GoogleSignin.hasPreviousSignIn()) {
+      await GoogleSignin.signOut();
+    }
+  } catch {
+    /* local session still needs Firebase sign-out */
+  }
   const auth = getFirebaseAuth();
   if (!auth) return;
   await signOut(auth);

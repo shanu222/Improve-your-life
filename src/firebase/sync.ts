@@ -4,7 +4,12 @@ import { stripImageFromPayload } from '../domain/foodVision';
 import { logInternalError } from '../domain/errors';
 import { getFirestoreDb } from './client';
 
-export async function syncProfileToCloud(uid: string, profile: UserProfile, email?: string): Promise<void> {
+export async function syncProfileToCloud(
+  uid: string,
+  profile: UserProfile,
+  email?: string,
+  extras?: { notificationEnabled?: boolean },
+): Promise<void> {
   const db = getFirestoreDb();
   if (!db) return;
   await setDoc(
@@ -14,7 +19,8 @@ export async function syncProfileToCloud(uid: string, profile: UserProfile, emai
       email: email ?? null,
       displayName: profile.name,
       timezone: profile.timezone,
-      notificationEnabled: false,
+      notificationEnabled: extras?.notificationEnabled ?? false,
+      notificationsEnabled: extras?.notificationEnabled ?? false,
       onboardingCompleted: profile.onboardingComplete,
       lastOpenedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -76,34 +82,108 @@ export async function syncEntryToCloud(uid: string, entry: LogEntry): Promise<bo
   return true;
 }
 
-export async function syncNotificationPrefs(uid: string, pref: NotificationPreference): Promise<void> {
+export async function syncNotificationPrefs(
+  uid: string,
+  pref: NotificationPreference,
+  timezone?: string,
+): Promise<void> {
   const db = getFirestoreDb();
   if (!db) return;
-  await setDoc(doc(db, 'users', uid, 'notification_preferences', 'settings'), {
+  const tz = timezone || '';
+  const settings = {
     enabled: pref.enabled,
+    breakfastReminder: pref.categories.breakfast !== false,
+    lunchReminder: pref.categories.lunch !== false,
+    dinnerReminder: pref.categories.dinner !== false,
+    waterReminder: pref.categories.water !== false,
+    hygieneReminder: pref.categories.sleep !== false,
+    moodReminder: pref.categories.mood !== false,
+    activityReminder: pref.categories.break !== false,
+    inactivityReminder: true,
+    dailySummary: pref.categories.endOfDay !== false,
+    smartReminders: true,
+    quietHoursEnabled: true,
+    quietHoursStart: pref.quietHoursStart,
+    quietHoursEnd: pref.quietHoursEnd,
     quietHours: `${pref.quietHoursStart}-${pref.quietHoursEnd}`,
-    timezone: '',
+    timezone: tz,
+    reminderMode: pref.reminderMode,
     ...pref.categories,
-  });
-}
-
-export async function registerDeviceToken(uid: string, token: string, platform: string): Promise<void> {
-  const db = getFirestoreDb();
-  if (!db) return;
-  const id = token.slice(-24) || 'device';
-  await setDoc(doc(db, 'users', uid, 'devices', id), {
-    token,
-    platform,
     updatedAt: new Date().toISOString(),
-    disabled: false,
-  });
+  };
+  await setDoc(doc(db, 'users', uid, 'notification_preferences', 'settings'), settings, { merge: true });
+  await setDoc(
+    doc(db, 'users', uid),
+    { notificationSettings: settings, notificationEnabled: pref.enabled, notificationsEnabled: pref.enabled },
+    { merge: true },
+  );
 }
 
-export async function disableDeviceToken(uid: string, token: string): Promise<void> {
+export type DeviceTokenPayload = {
+  fcmToken?: string | null;
+  token?: string | null;
+  platform: string;
+  appVersion?: string;
+  enabled?: boolean;
+  notificationPermission?: string;
+  timezone?: string;
+  lastSeen?: string;
+  updatedAt?: string;
+};
+
+export async function registerDeviceToken(uid: string, deviceId: string, payload: DeviceTokenPayload): Promise<void> {
   const db = getFirestoreDb();
   if (!db) return;
-  const id = token.slice(-24) || 'device';
-  await deleteDoc(doc(db, 'users', uid, 'devices', id)).catch((error) => logInternalError('device.delete', error));
+  const token = payload.fcmToken || payload.token || '';
+  const now = new Date().toISOString();
+  const body = {
+    deviceId,
+    fcmToken: token || null,
+    token: token || null,
+    platform: payload.platform,
+    appVersion: payload.appVersion ?? '',
+    enabled: payload.enabled !== false && Boolean(token),
+    disabled: payload.enabled === false || !token,
+    notificationPermission: payload.notificationPermission ?? 'undetermined',
+    timezone: payload.timezone ?? '',
+    lastSeen: payload.lastSeen ?? now,
+    updatedAt: payload.updatedAt ?? now,
+  };
+  await setDoc(doc(db, 'users', uid, 'devices', deviceId || 'device'), body, { merge: true });
+  if (token) {
+    const legacyId = token.slice(-24);
+    if (legacyId && legacyId !== deviceId) {
+      await setDoc(doc(db, 'users', uid, 'devices', legacyId), { ...body, disabled: true, enabled: false }, { merge: true });
+    }
+  }
+}
+
+export async function touchDevicePresence(uid: string, deviceId: string, timezone: string): Promise<void> {
+  const db = getFirestoreDb();
+  if (!db) return;
+  const now = new Date().toISOString();
+  await setDoc(
+    doc(db, 'users', uid, 'devices', deviceId || 'device'),
+    { lastSeen: now, updatedAt: now, timezone },
+    { merge: true },
+  );
+  await setDoc(doc(db, 'users', uid), { lastOpenedAt: now, lastSeen: now, timezone }, { merge: true });
+}
+
+export async function disableDeviceToken(uid: string, deviceId: string, token?: string | null): Promise<void> {
+  const db = getFirestoreDb();
+  if (!db) return;
+  const now = new Date().toISOString();
+  await setDoc(
+    doc(db, 'users', uid, 'devices', deviceId || 'device'),
+    { enabled: false, disabled: true, updatedAt: now },
+    { merge: true },
+  ).catch((error) => logInternalError('device.disable', error));
+  if (token) {
+    await deleteDoc(doc(db, 'users', uid, 'devices', token.slice(-24))).catch((error) =>
+      logInternalError('device.delete', error),
+    );
+  }
 }
 
 export async function safeCloudSync(fn: () => Promise<void>): Promise<void> {

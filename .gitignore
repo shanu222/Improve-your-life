@@ -39,6 +39,7 @@ yarn-error.*
 /ios/
 DailyMe-debug.apk
 *.apk
+*.aab
 
 # secrets
 *-firebase-adminsdk-*.json
@@ -52,3 +53,7 @@ serviceAccount*.json
 
 # Vercel
 .vercel/
+
+# Cloud Functions build
+functions/lib/
+functions/node_modules/

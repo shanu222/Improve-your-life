@@ -1,10 +1,27 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LegalLinks } from '../src/components/LegalDocument';
 import { Body, Button, Card, Screen, Title } from '../src/components/ui';
+import { PasswordField } from '../src/components/PasswordField';
+import { LEGAL } from '../src/legal/config';
 import { toUserMessage } from '../src/domain/errors';
-import { registerWithEmail, requestPasswordReset, signInGoogleIdToken, signInWithEmail, useGoogleAuthRequest } from '../src/firebase/auth';
+import {
+  registerWithEmail,
+  requestPasswordReset,
+  signInWithEmail,
+  signInWithGoogleNative,
+} from '../src/firebase/auth';
 import { firebaseConfigured } from '../src/firebase/client';
 import { googleSignInAvailable } from '../src/auth/google';
 import { apiPost } from '../src/lib/apiClient';
@@ -22,8 +39,9 @@ export default function AuthScreen() {
   const [code, setCode] = useState('');
   const [uid, setUid] = useState('');
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [request, response, promptAsync] = useGoogleAuthRequest();
+  const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const finish = async (user: { uid: string; email: string | null; emailVerified: boolean }, provider: 'google' | 'password') => {
     await linkCloudAccount({
@@ -33,24 +51,21 @@ export default function AuthScreen() {
       emailVerified: user.emailVerified,
     });
     void registerPushForUser(user.uid);
-    router.back();
+    router.replace('/(tabs)');
   };
 
   const onRegister = async () => {
     setBusy(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
       const user = await registerWithEmail(email, password);
       setUid(user.uid);
-      try {
-        await apiPost('/api/auth/send-code', { email });
-        setMode('verify');
-        setMessage('We sent a 6-digit code to your email.');
-      } catch {
-        await finish(user, 'password');
-      }
-    } catch (error) {
-      setMessage(toUserMessage(error));
+      await apiPost('/api/auth/send-code', { email });
+      setMode('verify');
+      setInfo('We sent a 6-digit code to your email. Check Spam if you do not see it.');
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setBusy(false);
     }
@@ -58,13 +73,14 @@ export default function AuthScreen() {
 
   const onVerify = async () => {
     setBusy(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
       await apiPost('/api/auth/verify-code', { email, code, uid });
       const user = await signInWithEmail(email, password);
       await finish(user, 'password');
-    } catch (error) {
-      setMessage(toUserMessage(error));
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setBusy(false);
     }
@@ -72,42 +88,39 @@ export default function AuthScreen() {
 
   const onSignIn = async () => {
     setBusy(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
       const user = await signInWithEmail(email, password);
       if (!user.emailVerified) {
         setUid(user.uid);
-        try {
-          await apiPost('/api/auth/send-code', { email });
-          setMode('verify');
-          setMessage('Please enter the verification code from your email.');
-          return;
-        } catch {
-          await finish(user, 'password');
-          return;
-        }
+        await apiPost('/api/auth/send-code', { email });
+        setMode('verify');
+        setInfo('Enter the verification code from your email to continue.');
+        return;
       }
       await finish(user, 'password');
-    } catch (error) {
-      setMessage(toUserMessage(error));
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
   const onGoogle = async () => {
+    if (busy) return;
     setBusy(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
-      const result = await promptAsync();
-      if (result.type !== 'success' || !('params' in result) || !result.params.id_token) {
-        setBusy(false);
+      const user = await signInWithGoogleNative();
+      if (user === 'cancelled') {
+        setInfo('Google sign-in was cancelled.');
         return;
       }
-      const user = await signInGoogleIdToken(String(result.params.id_token));
       await finish(user, 'google');
-    } catch (error) {
-      setMessage(toUserMessage(error));
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setBusy(false);
     }
@@ -115,27 +128,24 @@ export default function AuthScreen() {
 
   const onReset = async () => {
     setBusy(true);
-    setMessage(null);
+    setError(null);
+    setInfo(null);
     try {
       await requestPasswordReset(email);
-      setMessage('If that email has a password account, a reset link is on its way.');
-    } catch (error) {
-      setMessage(toUserMessage(error));
+      setInfo('If this email has a password account, Firebase sent a reset link. Check Spam if you do not see it.');
+    } catch (err) {
+      setError(toUserMessage(err));
     } finally {
       setBusy(false);
     }
   };
 
-  void request;
-  void response;
-
   if (!firebaseConfigured()) {
     return (
       <Screen theme={theme}>
-        <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, padding: 20, gap: 14 }}>
-          <Pressable onPress={() => router.back()}><Text style={{ color: theme.accent, fontWeight: '700' }}>Close</Text></Pressable>
-          <Title theme={theme}>Cloud sign-in</Title>
-          <Body theme={theme}>Tracking still works on this device. Cloud sign-in is not configured yet.</Body>
+        <ScrollView contentContainerStyle={{ paddingTop: insets.top + 24, padding: 20, gap: 14 }}>
+          <Title theme={theme}>Sign in unavailable</Title>
+          <Body theme={theme}>Firebase is not configured in this build, so DailyMe cannot create an account.</Body>
         </ScrollView>
       </Screen>
     );
@@ -143,81 +153,168 @@ export default function AuthScreen() {
 
   return (
     <Screen theme={theme}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, padding: 20, gap: 14, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
-        <Pressable onPress={() => router.back()}><Text style={{ color: theme.accent, fontWeight: '700' }}>Close</Text></Pressable>
-        <Title theme={theme}>{mode === 'register' ? 'Create account' : mode === 'verify' ? 'Enter your code' : mode === 'reset' ? 'Reset password' : 'Sign in'}</Title>
-        <Body theme={theme}>Google or email. DailyMe never creates a second account for the same email.</Body>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ paddingTop: insets.top + 24, padding: 20, gap: 14, paddingBottom: insets.bottom + 32 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Title theme={theme}>
+            {mode === 'register' ? 'Create account' : mode === 'verify' ? 'Verify your email' : mode === 'reset' ? 'Reset password' : 'Sign in'}
+          </Title>
+          <Body theme={theme}>
+            Sign in to use DailyMe. Google and email/password cannot be mixed for the same address.
+          </Body>
 
-        {mode !== 'verify' ? (
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            accessibilityLabel="Email"
-            placeholderTextColor={theme.faint}
-            style={{ backgroundColor: theme.surface, borderRadius: 16, padding: 14, color: theme.ink, minHeight: 52 }}
-          />
-        ) : null}
+          {mode !== 'verify' ? (
+            <View style={{ gap: 6 }}>
+              <Text style={{ color: theme.muted, fontWeight: '700' }}>Email</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@email.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                accessibilityLabel="Email"
+                placeholderTextColor={theme.faint}
+                style={{ backgroundColor: theme.surface, borderRadius: 16, padding: 14, color: theme.ink, minHeight: 52 }}
+              />
+            </View>
+          ) : null}
 
-        {mode === 'signin' || mode === 'register' ? (
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            secureTextEntry
-            accessibilityLabel="Password"
-            placeholderTextColor={theme.faint}
-            style={{ backgroundColor: theme.surface, borderRadius: 16, padding: 14, color: theme.ink, minHeight: 52 }}
-          />
-        ) : null}
+          {mode === 'signin' || mode === 'register' ? (
+            <PasswordField
+              theme={theme}
+              label="Password"
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+            />
+          ) : null}
 
-        {mode === 'verify' ? (
-          <TextInput
-            value={code}
-            onChangeText={setCode}
-            placeholder="6-digit code"
-            keyboardType="number-pad"
-            accessibilityLabel="Verification code"
-            placeholderTextColor={theme.faint}
-            style={{ backgroundColor: theme.surface, borderRadius: 16, padding: 14, color: theme.ink, minHeight: 52, letterSpacing: 4 }}
-          />
-        ) : null}
+          {mode === 'verify' ? (
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder="6-digit code"
+              keyboardType="number-pad"
+              accessibilityLabel="Verification code"
+              placeholderTextColor={theme.faint}
+              style={{ backgroundColor: theme.surface, borderRadius: 16, padding: 14, color: theme.ink, minHeight: 52, letterSpacing: 4 }}
+            />
+          ) : null}
 
-        {message ? (
-          <Card theme={theme}><Text style={{ color: theme.ink, fontWeight: '700' }}>{message}</Text></Card>
-        ) : null}
+          {error ? (
+            <Card theme={theme}>
+              <Text style={{ color: theme.attention, fontWeight: '700' }}>{error}</Text>
+            </Card>
+          ) : null}
+          {info ? (
+            <Card theme={theme}>
+              <Text style={{ color: theme.ink, fontWeight: '700' }}>{info}</Text>
+            </Card>
+          ) : null}
 
-        {busy ? <ActivityIndicator color={theme.accent} /> : null}
+          {busy ? (
+            <View style={{ alignItems: 'center', gap: 8, paddingVertical: 8 }}>
+              <ActivityIndicator color={theme.accent} />
+              <Body theme={theme}>Working… this will not stay here if something fails.</Body>
+            </View>
+          ) : null}
 
-        {mode === 'signin' ? (
-          <>
-            <Button theme={theme} label="Sign in" disabled={busy || !email || !password} onPress={() => void onSignIn()} />
-            {googleSignInAvailable() ? <Button theme={theme} variant="soft" label="Continue with Google" disabled={busy} onPress={() => void onGoogle()} /> : null}
-            <Button theme={theme} variant="ghost" label="Create an account" onPress={() => setMode('register')} />
-            <Button theme={theme} variant="ghost" label="Forgot password" onPress={() => setMode('reset')} />
-          </>
-        ) : null}
+          {mode === 'signin' || mode === 'register' ? (
+            <View style={{ gap: 8 }}>
+              <Pressable
+                onPress={() => setAcceptedTerms((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: acceptedTerms }}
+                accessibilityLabel={`I am ${LEGAL.minimumAge} or older and I agree to the Terms of Service and Privacy Policy`}
+                style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start', minHeight: 48 }}
+              >
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    borderWidth: 2,
+                    borderColor: acceptedTerms ? theme.accent : theme.line,
+                    backgroundColor: acceptedTerms ? theme.accent : 'transparent',
+                    marginTop: 2,
+                  }}
+                />
+                <Text style={{ flex: 1, color: theme.ink, fontWeight: '700', lineHeight: 22 }}>
+                  I am {LEGAL.minimumAge} or older and I agree to the Terms of Service and Privacy Policy.
+                </Text>
+              </Pressable>
+              <LegalLinks compact />
+            </View>
+          ) : null}
 
-        {mode === 'register' ? (
-          <>
-            <Button theme={theme} label="Send verification code" disabled={busy || !email || password.length < 6} onPress={() => void onRegister()} />
-            <Button theme={theme} variant="ghost" label="I already have an account" onPress={() => setMode('signin')} />
-          </>
-        ) : null}
+          {mode === 'signin' ? (
+            <>
+              <Button theme={theme} label="Sign in" disabled={busy || !email || !password} onPress={() => void onSignIn()} />
+              {googleSignInAvailable() ? (
+                <Button
+                  theme={theme}
+                  variant="soft"
+                  label="Continue with Google"
+                  disabled={busy || !acceptedTerms}
+                  onPress={() => void onGoogle()}
+                />
+              ) : null}
+              <Button theme={theme} variant="ghost" label="Create an account" disabled={busy} onPress={() => setMode('register')} />
+              <Pressable onPress={() => setMode('reset')} disabled={busy} style={{ minHeight: 44, justifyContent: 'center' }}>
+                <Text style={{ color: theme.accent, fontWeight: '700' }}>Forgot password?</Text>
+              </Pressable>
+            </>
+          ) : null}
 
-        {mode === 'verify' ? (
-          <Button theme={theme} label="Verify and continue" disabled={busy || code.length < 6} onPress={() => void onVerify()} />
-        ) : null}
+          {mode === 'register' ? (
+            <>
+              <Button
+                theme={theme}
+                label="Send verification code"
+                disabled={busy || !acceptedTerms || !email || password.length < 6}
+                onPress={() => void onRegister()}
+              />
+              <Button theme={theme} variant="ghost" label="I already have an account" disabled={busy} onPress={() => setMode('signin')} />
+            </>
+          ) : null}
 
-        {mode === 'reset' ? (
-          <>
-            <Button theme={theme} label="Send reset email" disabled={busy || !email} onPress={() => void onReset()} />
-            <Button theme={theme} variant="ghost" label="Back to sign in" onPress={() => setMode('signin')} />
-          </>
-        ) : null}
-      </ScrollView>
+          {mode === 'verify' ? (
+            <>
+              <Button theme={theme} label="Verify and continue" disabled={busy || code.length < 6} onPress={() => void onVerify()} />
+              <Button
+                theme={theme}
+                variant="ghost"
+                label="Resend code"
+                disabled={busy}
+                onPress={() => {
+                  void (async () => {
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      await apiPost('/api/auth/send-code', { email });
+                      setInfo('We sent a new code. Check Spam if you do not see it.');
+                    } catch (err) {
+                      setError(toUserMessage(err));
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              />
+            </>
+          ) : null}
+
+          {mode === 'reset' ? (
+            <>
+              <Button theme={theme} label="Send reset email" disabled={busy || !email} onPress={() => void onReset()} />
+              <Button theme={theme} variant="ghost" label="Back to sign in" disabled={busy} onPress={() => setMode('signin')} />
+            </>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }

@@ -29,7 +29,12 @@
       },
       "package": "app.daily.wellness",
       "googleServicesFile": "./google-services.json",
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -63,7 +68,8 @@
           "photosPermission": "DailyMe uses photos only to estimate a meal. The photo is not stored.",
           "cameraPermission": "DailyMe uses the camera only to estimate a meal. The photo is not stored."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "experiments": {
       "typedRoutes": true
@@ -73,6 +79,13 @@
       "googleWebClientId": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
       "googleAndroidClientId": "710882308081-ooov9rapb55apfpkiel54a70eadrr8r3.apps.googleusercontent.com",
       "apiBase": "https://improve-your-life-ten.vercel.app",
+      "supportEmail": "shahnawaz9974balouch@gmail.com",
+      "legal": {
+        "privacyUrl": "https://improve-your-life-ten.vercel.app/privacy-policy",
+        "termsUrl": "https://improve-your-life-ten.vercel.app/terms",
+        "supportUrl": "https://improve-your-life-ten.vercel.app/support",
+        "deleteAccountUrl": "https://improve-your-life-ten.vercel.app/delete-account"
+      },
       "firebase": {
         "apiKey": "AIzaSyBlI951Ve6D7f5JcNzPJQmBGBavvYbk58o",
         "authDomain": "dailyme-e11ef.firebaseapp.com",

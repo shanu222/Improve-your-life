@@ -7,7 +7,7 @@
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "master": false
+      "master": true
     }
   },
   "rewrites": [
@@ -21,13 +21,13 @@
     { "source": "/api/notifications/dispatch", "destination": "/api/notify?action=dispatch" },
     { "source": "/api/daily-summary", "destination": "/api/reports?kind=daily" },
     { "source": "/api/weekly-summary", "destination": "/api/reports?kind=weekly" },
+    { "source": "/privacy-policy", "destination": "/api/legal?doc=privacy" },
+    { "source": "/terms", "destination": "/api/legal?doc=terms" },
+    { "source": "/terms-of-service", "destination": "/api/legal?doc=terms" },
+    { "source": "/support", "destination": "/api/legal?doc=support" },
+    { "source": "/delete-account", "destination": "/api/legal?doc=delete" },
+    { "source": "/health-disclaimer", "destination": "/api/legal?doc=health" },
     { "source": "/((?!api/|_expo/).*)", "destination": "/index.html" }
-  ],
-  "crons": [
-    {
-      "path": "/api/notify",
-      "schedule": "0 9 * * *"
-    }
   ],
   "headers": [
     {
