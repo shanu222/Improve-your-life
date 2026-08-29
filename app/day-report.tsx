@@ -27,7 +27,7 @@ export default function DayReportScreen() {
         {report ? (
           <>
             <Card theme={theme} style={{ alignItems: 'center' }}>
-              <Text style={{ color: theme.faint, fontWeight: '700' }}>Daily Balance Score</Text>
+              <Text style={{ color: theme.faint, fontWeight: '700' }}>{"Today's Wellbeing"}</Text>
               <Text style={{ color: theme.ink, fontSize: 52, fontWeight: '800' }}>{report.score}</Text>
               <Text style={{ color: theme.muted }}>/100</Text>
             </Card>

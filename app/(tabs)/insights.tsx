@@ -35,7 +35,7 @@ export default function InsightsScreen() {
             theme={theme}
             emoji="✨"
             title="Still gathering your story"
-            body="Keep checking in for a week and Daily will surface gentle patterns."
+            body="Keep checking in for a week and DailyMe will surface gentle patterns."
           />
         ) : (
           insights.map((insight) => (

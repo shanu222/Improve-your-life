@@ -3,10 +3,12 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Card, Screen, Title } from '../src/components/ui';
 import { TimeStepper } from '../src/components/TimeStepper';
+import { registerPushForUser } from '../src/lib/push';
 import { requestNotificationPermission, syncScheduledReminders } from '../src/lib/notifications';
 import { useAppStore } from '../src/store/appStore';
 import { useAppTheme } from '../src/theme';
-import type { ReminderMode } from '../src/domain/types';
+import type { NotificationCategories, ReminderMode } from '../src/domain/types';
+import { defaultNotificationPref } from '../src/domain/defaults';
 
 export default function NotificationsScreen() {
   const theme = useAppTheme();
@@ -24,6 +26,7 @@ export default function NotificationsScreen() {
       if (ok && service && user && profile) {
         const plan = await service.reminderPlan(user.id);
         await syncScheduledReminders(plan, profile, true);
+        if (user.firebaseUid) void registerPushForUser(user.firebaseUid);
       }
       return;
     }
@@ -36,7 +39,11 @@ export default function NotificationsScreen() {
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, padding: 20, gap: 14, paddingBottom: 40 }}>
         <Pressable onPress={() => router.back()}><Text style={{ color: theme.accent, fontWeight: '700' }}>Back</Text></Pressable>
         <Title theme={theme}>Notifications</Title>
-        <Body theme={theme}>Daily never spams. Completed items are skipped. Quiet hours are respected.</Body>
+        <Body theme={theme}>DailyMe never spams. Completed items are skipped. Quiet hours are respected. Nothing is sent if reminders are off.</Body>
+        <Card theme={theme}>
+          <Text style={{ color: theme.ink, fontWeight: '800' }}>Permission</Text>
+          <Body theme={theme}>{notif?.enabled ? 'Reminders are on for this device.' : 'Reminders are off. DailyMe will not send notifications.'}</Body>
+        </Card>
         <Button
           theme={theme}
           label={notif?.enabled ? 'Reminders on' : 'Enable reminders'}
@@ -72,6 +79,36 @@ export default function NotificationsScreen() {
               <Button key={n} theme={theme} variant="soft" label={`${n}m`} onPress={() => void updateNotifications({ snoozeMinutes: n })} />
             ))}
           </View>
+        </Card>
+        <Card theme={theme} style={{ gap: 10 }}>
+          <Text style={{ color: theme.ink, fontWeight: '800' }}>Categories</Text>
+          {(
+            [
+              ['morning', 'Morning'],
+              ['breakfast', 'Breakfast'],
+              ['lunch', 'Lunch'],
+              ['dinner', 'Dinner'],
+              ['water', 'Water'],
+              ['break', 'Breaks'],
+              ['mood', 'Mood'],
+              ['sleep', 'Sleep'],
+              ['endOfDay', 'End of day'],
+            ] as const
+          ).map(([key, label]) => (
+            <Pressable
+              key={key}
+              onPress={() => {
+                const current = notif?.categories ?? defaultNotificationPref(user?.id ?? 'local').categories;
+                void updateNotifications({
+                  categories: { ...current, [key]: !current[key] } satisfies NotificationCategories,
+                });
+              }}
+            >
+              <Text style={{ color: theme.ink, fontWeight: '700' }}>
+                {label}: {notif?.categories?.[key] === false ? 'Off' : 'On'}
+              </Text>
+            </Pressable>
+          ))}
         </Card>
       </ScrollView>
     </Screen>

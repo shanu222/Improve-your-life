@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProgressRing, ScoreNumber } from '../../src/components/ProgressRing';
 import { Body, Button, Card, EmptyState, Screen, Title, TonePill } from '../../src/components/ui';
 import { QUICK_ACTIONS } from '../../src/domain/defaults';
+import { wellbeingBars } from '../../src/domain/wellbeingBars';
 import { formatDuration, formatGreeting, getLocalMinutes, glassesFromMl } from '../../src/domain/timezone';
 import { formatHoursMinutes } from '../../src/domain/sleep';
 import { waterStatus, sleepStatus } from '../../src/domain/scoring';
@@ -83,7 +84,7 @@ export default function TodayScreen() {
       >
         <Text style={{ color: theme.muted, fontWeight: '700' }}>{hello}</Text>
         <Title theme={theme} style={{ fontSize: 22 }}>
-          How are you doing today?
+          How are you feeling today?
         </Title>
 
         {error ? (
@@ -102,7 +103,7 @@ export default function TodayScreen() {
           >
             <ScoreNumber theme={theme} score={today?.scored.score ?? null} />
           </ProgressRing>
-          <Text style={{ color: theme.ink, fontWeight: '700', fontSize: 16 }}>Daily Balance Score</Text>
+          <Text style={{ color: theme.ink, fontWeight: '700', fontSize: 16 }}>{"Today's Wellbeing"}</Text>
           <Body theme={theme} style={{ textAlign: 'center' }}>
             {today?.scored.headline}
           </Body>
@@ -163,6 +164,37 @@ export default function TodayScreen() {
             />
           ) : null}
         </View>
+
+        <Card theme={theme} style={{ gap: 10 }}>
+          <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 18 }}>{"Today's progress"}</Text>
+          {(today?.entries ? wellbeingBars(today.entries, {
+            waterMl: profile?.waterGoalMl ?? 2000,
+            sleepMin: profile?.sleepGoalMinutes ?? 480,
+            moveMin: profile?.exerciseGoalMinutes ?? 30,
+          }) : []).map((bar) => (
+            <View key={bar.id} style={{ gap: 4 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Text style={{ color: theme.ink, fontWeight: '700' }}>{bar.label}</Text>
+                <Text style={{ color: theme.muted }}>{bar.value}%</Text>
+              </View>
+              <View style={{ height: 10, borderRadius: 8, backgroundColor: theme.line, overflow: 'hidden' }}>
+                <View style={{ width: `${bar.value}%`, height: 10, backgroundColor: theme.accent }} />
+              </View>
+            </View>
+          ))}
+        </Card>
+
+        <Card theme={theme} style={{ gap: 10 }}>
+          <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 18 }}>{"What's happening right now?"}</Text>
+          <Button theme={theme} label="Quick check-in" onPress={() => router.push('/now')} />
+        </Card>
+
+        {today?.coach.priorities[0] ? (
+          <Card theme={theme} style={{ gap: 6 }}>
+            <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 18 }}>{"Today's priority"}</Text>
+            <Body theme={theme}>{today.coach.priorities[0].emoji} {today.coach.priorities[0].text}</Body>
+          </Card>
+        ) : null}
 
         <Card theme={theme} style={{ gap: 12 }}>
           <Text style={{ color: theme.ink, fontWeight: '800', fontSize: 18 }}>How are you feeling?</Text>
@@ -240,8 +272,28 @@ export default function TodayScreen() {
         )}
 
         <Button theme={theme} label="✨ Improve my day" onPress={() => router.push('/coach')} />
+        <Button theme={theme} variant="soft" label="Compare with recent days" onPress={() => router.push('/compare')} />
         <Button theme={theme} variant="ghost" label="End-of-day report" onPress={() => router.push('/day-report')} />
       </ScrollView>
+      <Pressable
+        onPress={() => router.push('/quick')}
+        accessibilityRole="button"
+        accessibilityLabel="Quick log"
+        style={{
+          position: 'absolute',
+          right: 18,
+          bottom: 18,
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: theme.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          elevation: 4,
+        }}
+      >
+        <Text style={{ color: theme.onAccent, fontSize: 32, fontWeight: '700', marginTop: -2 }}>+</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -298,7 +350,7 @@ function labelFor(type: string, payload: Record<string, unknown>): string {
     case 'caffeine':
       return '☕ Caffeine';
     case 'hygiene':
-      return payload.kind === 'brush' ? '🪥 Brush teeth' : payload.kind === 'face' ? '🧴 Wash face' : '🧼 Bath/shower';
+      return payload.kind === 'brush' ? '🪥 Brush teeth' : payload.kind === 'face' ? '🧴 Wash face' : payload.kind === 'clothes' ? '👕 Clothes' : '🧼 Bath/shower';
     case 'fruit':
       return '🍎 Fruit';
     case 'vegetables':
@@ -317,6 +369,16 @@ function labelFor(type: string, payload: Record<string, unknown>): string {
       return payload.action === 'start' ? '☕ Break started' : '✅ Break complete';
     case 'custom':
       return `⭐ ${String(payload.name ?? 'Habit')}`;
+    case 'alcohol':
+      return '🍷 Alcohol';
+    case 'note':
+      return `📝 ${String(payload.text ?? 'Note')}`;
+    case 'activity':
+      return `✨ ${String(payload.activity ?? 'Check-in')}`;
+    case 'focus':
+      return `🎯 Focus — ${payload.title ?? 'session'}`;
+    case 'weather':
+      return `🌤️ ${payload.celsius ? `${payload.celsius}°C` : 'Weather'}`;
     default:
       return type;
   }

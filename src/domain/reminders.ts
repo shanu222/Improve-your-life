@@ -79,9 +79,23 @@ export function buildReminderPlan(
     {
       type: 'break',
       minutesFromMidnight: wake + 240,
-      title: 'Take a 5–10 minute break',
-      body: "You've been focused for a stretch.",
+      title: "You've been working for a while.",
+      body: 'Want to take a short break?',
       skipIf: ['break'],
+    },
+    {
+      type: 'mood',
+      minutesFromMidnight: lunch + 90,
+      title: 'Quick check-in',
+      body: 'How are you feeling right now?',
+      skipIf: ['mood'],
+    },
+    {
+      type: 'end_of_day',
+      minutesFromMidnight: sleep - 20,
+      title: 'Before you call it a day',
+      body: 'How are you feeling?',
+      skipIf: ['wind_down'],
     },
   ];
 
@@ -89,7 +103,7 @@ export function buildReminderPlan(
     mode === 'minimal'
       ? new Set(['morning', 'lunch', 'wind_down'])
       : mode === 'balanced'
-        ? new Set(['morning', 'breakfast', 'water_mid_morning', 'lunch', 'dinner', 'wind_down'])
+        ? new Set(['morning', 'breakfast', 'water_mid_morning', 'lunch', 'dinner', 'mood', 'wind_down', 'end_of_day'])
         : new Set(all.map((r) => r.type));
 
   return all.filter((r) => allowed.has(r.type)).map((r) => ({
@@ -108,10 +122,13 @@ export function shouldFireReminder(input: {
   enabled: boolean;
   disabledTypes: string[];
   alreadyFiredToday: boolean;
+  categories?: Partial<Record<string, boolean>>;
 }): boolean {
   if (!input.enabled) return false;
   if (input.alreadyFiredToday) return false;
   if (input.disabledTypes.includes(input.reminder.type)) return false;
+  const category = reminderCategory(input.reminder.type);
+  if (category && input.categories && input.categories[category] === false) return false;
   if (isInQuietHours(input.currentMinutes, input.quietStart, input.quietEnd)) return false;
   if (Math.abs(input.currentMinutes - input.reminder.minutesFromMidnight) > 2) return false;
 
@@ -135,4 +152,12 @@ export function shouldFireReminder(input: {
     }
   }
   return true;
+}
+
+export function reminderCategory(type: string): string {
+  if (type.startsWith('water')) return 'water';
+  if (type === 'wind_down') return 'sleep';
+  if (type === 'night_report' || type === 'end_of_day') return 'endOfDay';
+  if (type === 'movement' || type === 'break') return 'break';
+  return type;
 }

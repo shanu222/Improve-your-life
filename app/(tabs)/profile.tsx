@@ -19,6 +19,7 @@ export default function ProfileScreen() {
   const updateProfile = useAppStore((s) => s.updateProfile);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const setEmail = useAppStore((s) => s.setEmail);
+  const signOutAccount = useAppStore((s) => s.signOutAccount);
   const [name, setName] = useState(profile?.name ?? '');
   const [email, setEmailField] = useState(user?.email ?? '');
   const [waterGlasses, setWaterGlasses] = useState(String(Math.round((profile?.waterGoalMl ?? 2000) / GLASS_ML)));
@@ -63,6 +64,10 @@ export default function ProfileScreen() {
         }} />
         <Row label="Units" value={settings?.units ?? 'metric'} onPress={() => void updateSettings({ units: settings?.units === 'metric' ? 'imperial' : 'metric' })} />
 
+        <Button theme={theme} label={user?.firebaseUid ? 'Cloud account connected' : 'Sign in to DailyMe'} onPress={() => router.push('/auth')} />
+        {user?.firebaseUid ? (
+          <Button theme={theme} variant="ghost" label="Sign out of cloud" onPress={() => void signOutAccount()} />
+        ) : null}
         <Button theme={theme} label="Notifications" onPress={() => router.push('/notifications')} />
         <Button theme={theme} variant="soft" label="Privacy & data" onPress={() => router.push('/privacy')} />
         <Button theme={theme} variant="ghost" label="Settings" onPress={() => router.push('/settings')} />

@@ -16,6 +16,8 @@ export default function CheckIn() {
   const logCaffeine = useAppStore((s) => s.logCaffeine);
   const logScreen = useAppStore((s) => s.logScreen);
   const logBreak = useAppStore((s) => s.logBreak);
+  const logHygiene = useAppStore((s) => s.logHygiene);
+  const logNote = useAppStore((s) => s.logNote);
   const [minutes, setMinutes] = useState(20);
   const [caffeine, setCaffeine] = useState<CaffeineKind>('coffee');
 
@@ -114,7 +116,28 @@ export default function CheckIn() {
           </>
         ) : null}
 
-        {!['exercise', 'walk', 'caffeine', 'screen', 'break', 'relax'].includes(String(type)) ? (
+        {type === 'hygiene' ? (
+          <>
+            <Title theme={theme}>Personal care</Title>
+            <Body theme={theme}>No pressure — tiny check-ins only.</Body>
+            <Button theme={theme} label="I showered" onPress={async () => { await logHygiene('bath'); close(); }} />
+            <Button theme={theme} variant="soft" label="Brushed teeth" onPress={async () => { await logHygiene('brush'); close(); }} />
+            <Button theme={theme} variant="soft" label="Washed my face" onPress={async () => { await logHygiene('face'); close(); }} />
+            <Button theme={theme} variant="soft" label="Changed clothes" onPress={async () => { await logHygiene('clothes'); close(); }} />
+            <Button
+              theme={theme}
+              variant="ghost"
+              label="I don't feel fresh"
+              onPress={async () => {
+                await logNote("I don't feel fresh.");
+                close();
+              }}
+            />
+            <Body theme={theme}>No problem. A quick shower might help you feel more refreshed.</Body>
+          </>
+        ) : null}
+
+        {!['exercise', 'walk', 'caffeine', 'screen', 'break', 'relax', 'hygiene'].includes(String(type)) ? (
           <Card theme={theme}>
             <Body theme={theme}>Use the Today check-ins for this one — most things are a single tap.</Body>
             <Button theme={theme} label="Back to today" onPress={close} />

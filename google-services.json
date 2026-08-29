@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "710882308081",
+    "project_id": "dailyme-e11ef",
+    "storage_bucket": "dailyme-e11ef.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:710882308081:android:c576eeaa60e3539efb9e50",
+        "android_client_info": {
+          "package_name": "app.daily.wellness"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlI951Ve6D7f5JcNzPJQmBGBavvYbk58o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

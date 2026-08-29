@@ -57,6 +57,17 @@ export function defaultNotificationPref(userId: string): NotificationPreference 
     snoozeMinutes: 15,
     reminderMode: 'balanced',
     disabledTypes: [],
+    categories: {
+      morning: true,
+      breakfast: true,
+      lunch: true,
+      dinner: true,
+      water: true,
+      break: true,
+      mood: true,
+      sleep: true,
+      endOfDay: true,
+    },
   };
 }
 

@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Daily",
-    "slug": "daily",
-    "scheme": "daily",
+    "name": "DailyMe",
+    "slug": "dailyme",
+    "scheme": "dailyme",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,6 +28,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "app.daily.wellness",
+      "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -54,13 +55,30 @@
           "backgroundColor": "#F4F0EA",
           "image": "./assets/splash-icon.png"
         }
+      ],
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "DailyMe uses photos only to estimate a meal. The photo is not stored.",
+          "cameraPermission": "DailyMe uses the camera only to estimate a meal. The photo is not stored."
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "googleClientId": ""
+      "googleClientId": "",
+      "apiBase": "https://improve-your-life-ten.vercel.app",
+      "firebase": {
+        "apiKey": "AIzaSyBlI951Ve6D7f5JcNzPJQmBGBavvYbk58o",
+        "authDomain": "dailyme-e11ef.firebaseapp.com",
+        "projectId": "dailyme-e11ef",
+        "storageBucket": "dailyme-e11ef.firebasestorage.app",
+        "messagingSenderId": "710882308081",
+        "appId": "1:710882308081:android:c576eeaa60e3539efb9e50"
+      }
     }
   }
 }

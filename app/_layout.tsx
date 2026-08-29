@@ -32,6 +32,13 @@ export default function RootLayout() {
         <Stack.Screen name="privacy" />
         <Stack.Screen name="about" />
         <Stack.Screen name="score" />
+        <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="now" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="focus" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="note" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="weather" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="compare" />
+        <Stack.Screen name="quick" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
       </Stack>
     </GestureHandlerRootView>
   );

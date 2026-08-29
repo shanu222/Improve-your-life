@@ -34,6 +34,17 @@ yarn-error.*
 .env
 .env*.local
 
+# generated native (local APK builds)
+/android/
+/ios/
+DailyMe-debug.apk
+*.apk
+
+# secrets
+*-firebase-adminsdk-*.json
+serviceAccount*.json
+**/service-account*.json
+
 # typescript
 *.tsbuildinfo
 

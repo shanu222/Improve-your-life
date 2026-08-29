@@ -35,13 +35,18 @@ export type EntryType =
   | 'read'
   | 'relax'
   | 'custom'
-  | 'wind_down';
+  | 'wind_down'
+  | 'alcohol'
+  | 'weather'
+  | 'note'
+  | 'activity'
+  | 'focus';
 
 export type MealKind = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 export type HygieneKind = 'brush' | 'bath' | 'face' | 'hands' | 'skincare' | 'grooming' | 'clothes';
 export type ExerciseKind = 'walk' | 'run' | 'gym' | 'cycle' | 'sports' | 'stretch' | 'custom';
 export type CaffeineKind = 'coffee' | 'tea' | 'energy' | 'other';
-export type MoodKey = 'great' | 'good' | 'okay' | 'low' | 'stressed' | 'tired';
+export type MoodKey = 'great' | 'good' | 'okay' | 'low' | 'stressed' | 'tired' | 'irritated';
 
 export type StatusTone = 'good' | 'almost' | 'attention' | 'neutral';
 
@@ -50,7 +55,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   email?: string;
-  authProvider: 'local' | 'google';
+  authProvider: 'local' | 'google' | 'password';
+  firebaseUid?: string;
+  emailVerified?: boolean;
 }
 
 export interface UserProfile {
@@ -74,6 +81,8 @@ export interface UserProfile {
   exerciseGoalMinutes: number;
   smokingGoalPerDay?: number;
   calorieEstimate: number;
+  ageRange?: string;
+  feltFresh?: boolean;
   reminderMode: ReminderMode;
   createdAt: string;
   updatedAt: string;
@@ -88,6 +97,19 @@ export interface NotificationPreference {
   reminderMode: ReminderMode;
   disabledTypes: string[];
   lastPermissionPromptAt?: string;
+  categories: NotificationCategories;
+}
+
+export interface NotificationCategories {
+  morning: boolean;
+  breakfast: boolean;
+  lunch: boolean;
+  dinner: boolean;
+  water: boolean;
+  break: boolean;
+  mood: boolean;
+  sleep: boolean;
+  endOfDay: boolean;
 }
 
 export interface AppSettings {
@@ -395,6 +417,7 @@ export const MOOD_OPTIONS: { key: MoodKey; emoji: string; label: string; score: 
   { key: 'low', emoji: '😔', label: 'Low', score: 4 },
   { key: 'stressed', emoji: '😣', label: 'Stressed', score: 3 },
   { key: 'tired', emoji: '😴', label: 'Tired', score: 5 },
+  { key: 'irritated', emoji: '😡', label: 'Irritated', score: 3 },
 ];
 
 export const FOCUS_OPTIONS: { id: FocusArea; label: string; emoji: string }[] = [
@@ -402,13 +425,15 @@ export const FOCUS_OPTIONS: { id: FocusArea; label: string; emoji: string }[] = 
   { id: 'nutrition', label: 'Nutrition', emoji: '🥗' },
   { id: 'hydration', label: 'Hydration', emoji: '💧' },
   { id: 'exercise', label: 'Exercise', emoji: '🏃' },
-  { id: 'personal_care', label: 'Personal care', emoji: '✨' },
-  { id: 'stress', label: 'Stress', emoji: '🧘' },
+  { id: 'personal_care', label: 'Better hygiene', emoji: '✨' },
+  { id: 'stress', label: 'Better mood', emoji: '🧘' },
   { id: 'smoking', label: 'Smoking', emoji: '🌿' },
   { id: 'screen_time', label: 'Screen time', emoji: '📱' },
   { id: 'productivity', label: 'Productivity', emoji: '🎯' },
   { id: 'general', label: 'General wellbeing', emoji: '🌱' },
 ];
 
+export const AGE_RANGES = ['18–24', '25–34', '35–44', '45–54', '55+', 'Prefer not to say'] as const;
+
 export const HEALTH_DISCLAIMER =
-  'Daily is wellness and lifestyle software, not a medical diagnostic system. Nutrition numbers are estimates based on what you log. Daily never diagnoses conditions or predicts disease. If a pattern continues or you are concerned about your health, consider speaking with a qualified healthcare professional.';
+  'DailyMe is wellness and lifestyle software, not a medical diagnostic system. Nutrition numbers are estimates based on what you log. DailyMe never diagnoses conditions or predicts disease. Food photos are processed temporarily and are not stored. If a pattern continues or you are concerned about your health, consider speaking with a qualified healthcare professional.';

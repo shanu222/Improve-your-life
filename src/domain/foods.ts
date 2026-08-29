@@ -24,6 +24,8 @@ const n = (
 export const FOODS: FoodItem[] = [
   { id: 'roti', name: 'Roti', aliases: ['chapati', 'phulka'], servingLabel: '1 roti', region: 'pk', tags: ['grain'], nutrients: n(120, 3.1, 18, 3.2, 2.2, { ironMg: 1.1, magnesiumMg: 26 }) },
   { id: 'paratha', name: 'Paratha', aliases: ['paratha'], servingLabel: '1 paratha', region: 'pk', tags: ['grain'], nutrients: n(260, 4.5, 32, 12, 2.4, { ironMg: 1.4 }) },
+  { id: 'aloo_paratha', name: 'Aloo paratha', aliases: ['aloo paratha', 'potato paratha'], servingLabel: '1 aloo paratha', region: 'pk', tags: ['grain'], nutrients: n(320, 6, 42, 14, 3.2, { ironMg: 1.6, potassiumMg: 280 }) },
+  { id: 'rajma', name: 'Rajma', aliases: ['rajma masala', 'kidney beans'], servingLabel: '1 bowl', region: 'pk', tags: ['protein', 'vegetable'], nutrients: n(230, 13, 34, 5, 9, { ironMg: 3.8, potassiumMg: 520 }) },
   { id: 'naan', name: 'Naan', aliases: ['nan'], servingLabel: '1 naan', region: 'pk', tags: ['grain'], nutrients: n(260, 7.5, 45, 5, 1.8, { ironMg: 2.2, calciumMg: 80 }) },
   { id: 'rice', name: 'Rice', aliases: ['chawal', 'basmati', 'steamed rice'], servingLabel: '1 cup cooked', region: 'pk', tags: ['grain'], nutrients: n(205, 4.3, 45, 0.4, 0.6, { magnesiumMg: 19 }) },
   { id: 'biryani', name: 'Biryani', aliases: ['chicken biryani', 'beef biryani'], servingLabel: '1 plate', region: 'pk', tags: ['meal', 'protein'], nutrients: n(520, 24, 62, 18, 3.2, { ironMg: 2.8 }) },

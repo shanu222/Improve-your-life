@@ -11,7 +11,7 @@ import { createId, nowIso } from '../domain/ids';
 import { detectInsights } from '../domain/insights';
 import { parseMeal } from '../domain/mealParser';
 import { estimateExerciseCalories } from '../domain/nutrition';
-import { buildReminderPlan } from '../domain/reminders';
+import { buildReminderPlan, reminderCategory } from '../domain/reminders';
 import { buildDailyReport, buildWeeklyReport } from '../domain/reports';
 import {
   computeDailyScore,
@@ -133,8 +133,15 @@ export class DailyService {
     userId: string,
     patch: Partial<NotificationPreference>,
   ): Promise<NotificationPreference> {
-    const current = (await this.store.getNotificationPref(userId)) ?? defaultNotificationPref(userId);
-    const next = { ...current, ...patch, userId };
+    const defaults = defaultNotificationPref(userId);
+    const current = (await this.store.getNotificationPref(userId)) ?? defaults;
+    const next = {
+      ...defaults,
+      ...current,
+      ...patch,
+      userId,
+      categories: { ...defaults.categories, ...current.categories, ...patch.categories },
+    };
     await this.store.upsertNotificationPref(next);
     return next;
   }
@@ -224,6 +231,57 @@ export class DailyService {
 
   async logBreak(userId: string, action: 'start' | 'complete', minutes?: number): Promise<LogEntry> {
     return this.logEntry(userId, 'break', { action, minutes });
+  }
+
+  async logAlcohol(userId: string, drinks = 1): Promise<LogEntry> {
+    return this.logEntry(userId, 'alcohol', { drinks: Math.max(1, Math.min(8, drinks)) });
+  }
+
+  async logNote(userId: string, text: string): Promise<LogEntry> {
+    const cleaned = sanitizeText(text, 500);
+    if (!cleaned) throw new AppError('Add a short note.', 'VALIDATION');
+    return this.logEntry(userId, 'note', { text: cleaned });
+  }
+
+  async logActivity(userId: string, activity: string, description?: string): Promise<LogEntry> {
+    return this.logEntry(userId, 'activity', {
+      activity: sanitizeText(activity, 40),
+      description: description ? sanitizeText(description, 400) : undefined,
+    });
+  }
+
+  async logFocus(
+    userId: string,
+    payload: { title: string; duration: number; status?: string; action: 'start' | 'complete' },
+  ): Promise<LogEntry> {
+    return this.logEntry(userId, 'focus', {
+      title: sanitizeText(payload.title, 80),
+      duration: Math.max(5, Math.min(90, payload.duration)),
+      status: payload.status,
+      action: payload.action,
+    });
+  }
+
+  async logWeather(
+    userId: string,
+    payload: { celsius?: number; condition?: string; feelingHot?: boolean },
+  ): Promise<LogEntry> {
+    return this.logEntry(userId, 'weather', payload);
+  }
+
+  async logMealEstimate(
+    userId: string,
+    kind: MealKind,
+    text: string,
+    estimate: Record<string, unknown>,
+  ): Promise<LogEntry> {
+    const cleaned = sanitizeText(text, 400);
+    if (!cleaned) throw new AppError('Add a few words about what you ate.', 'VALIDATION');
+    const safe = { ...estimate };
+    delete safe.image;
+    delete safe.base64;
+    delete safe.photo;
+    return this.logEntry(userId, 'meal', { kind, text: cleaned, estimate: { ...safe, isEstimate: true } });
   }
 
   async editEntry(userId: string, id: string, payload: Record<string, unknown>): Promise<LogEntry> {
@@ -377,7 +435,31 @@ export class DailyService {
   async reminderPlan(userId: string) {
     const profile = await this.requireProfile(userId);
     const pref = (await this.store.getNotificationPref(userId)) ?? defaultNotificationPref(userId);
-    return buildReminderPlan(profile, pref.reminderMode);
+    return buildReminderPlan(profile, pref.reminderMode).filter((reminder) => {
+      const category = reminderCategory(reminder.type);
+      if (category in pref.categories) {
+        return pref.categories[category as keyof typeof pref.categories] !== false;
+      }
+      return true;
+    });
+  }
+
+  async linkCloudAccount(
+    userId: string,
+    patch: { firebaseUid?: string; email?: string; authProvider: 'google' | 'password' | 'local'; emailVerified?: boolean },
+  ): Promise<User> {
+    const user = await this.store.getUser(userId);
+    if (!user) throw new AppError(MESSAGES.notFound, 'NOT_FOUND');
+    const next: User = {
+      ...user,
+      firebaseUid: patch.firebaseUid || undefined,
+      email: patch.email ?? user.email,
+      authProvider: patch.authProvider,
+      emailVerified: patch.emailVerified,
+      updatedAt: nowIso(this.clock()),
+    };
+    await this.store.upsertUser(next);
+    return next;
   }
 
   async exportData(userId: string): Promise<ExportPayload> {

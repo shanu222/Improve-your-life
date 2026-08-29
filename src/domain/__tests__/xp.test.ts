@@ -26,10 +26,11 @@ describe('xp', () => {
     expect(xpForEntry(entry('water', { ml: 250 }), profile, [])?.amount).toBe(5);
   });
 
-  it('never awards smoking, junk, or sugary drinks', () => {
+  it('never awards smoking, junk, sugary drinks, or alcohol', () => {
     expect(xpForEntry(entry('smoking', { count: 1 }), profile, [])).toBeNull();
     expect(xpForEntry(entry('junk', { count: 1 }), profile, [])).toBeNull();
     expect(xpForEntry(entry('sugary', { count: 1 }), profile, [])).toBeNull();
+    expect(xpForEntry(entry('alcohol', { drinks: 1 }), profile, [])).toBeNull();
   });
 
   it('caps exercise xp per day', () => {

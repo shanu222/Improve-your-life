@@ -12,11 +12,11 @@ export default function AboutScreen() {
     <Screen theme={theme}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, padding: 20, gap: 14, paddingBottom: 40 }}>
         <Pressable onPress={() => router.back()}><Text style={{ color: theme.accent, fontWeight: '700' }}>Back</Text></Pressable>
-        <Title theme={theme}>Daily</Title>
-        <Body theme={theme} style={{ fontSize: 18 }}>Small habits. Better days.</Body>
+        <Title theme={theme}>DailyMe</Title>
+        <Body theme={theme} style={{ fontSize: 18 }}>Take care of yourself, one day at a time.</Body>
         <Body theme={theme}>{HEALTH_DISCLAIMER}</Body>
         <Body theme={theme}>Language is available for translation later. This version ships in English.</Body>
-        <Body theme={theme}>Google Sign-In can be enabled by setting extra.googleClientId. Passwords are never stored in Daily.</Body>
+        <Body theme={theme}>Sign-in is optional. Google and email live in your DailyMe account. Tracking still works on this device without an account.</Body>
       </ScrollView>
     </Screen>
   );

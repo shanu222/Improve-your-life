@@ -4,7 +4,9 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Body, Button, Chip, Screen, Title } from '../src/components/ui';
 import { TimeStepper } from '../src/components/TimeStepper';
-import { FOCUS_OPTIONS, type FocusArea, type ReminderMode } from '../src/domain/types';
+import { AGE_RANGES, FOCUS_OPTIONS, type FocusArea, type ReminderMode } from '../src/domain/types';
+import { requestNotificationPermission, syncScheduledReminders } from '../src/lib/notifications';
+import { registerPushForUser } from '../src/lib/push';
 import { useAppStore } from '../src/store/appStore';
 import { useAppTheme } from '../src/theme';
 
@@ -12,9 +14,13 @@ export default function Onboarding() {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const profile = useAppStore((s) => s.profile);
+  const user = useAppStore((s) => s.user);
+  const service = useAppStore((s) => s.service);
   const complete = useAppStore((s) => s.completeOnboarding);
+  const updateNotifications = useAppStore((s) => s.updateNotifications);
   const [step, setStep] = useState(0);
   const [name, setName] = useState(profile?.name ?? '');
+  const [ageRange, setAgeRange] = useState(profile?.ageRange ?? '');
   const [focus, setFocus] = useState<FocusArea[]>(profile?.focusAreas ?? []);
   const [wakeTime, setWake] = useState(profile?.wakeTime ?? '07:00');
   const [sleepTime, setSleep] = useState(profile?.sleepTime ?? '23:00');
@@ -27,9 +33,21 @@ export default function Onboarding() {
     setFocus((curr) => (curr.includes(id) ? curr.filter((x) => x !== id) : [...curr, id]));
   };
 
-  const finish = async () => {
+  const finish = async (enableNotifs: boolean | null) => {
+    if (enableNotifs === true) {
+      const ok = await requestNotificationPermission();
+      await updateNotifications({ enabled: ok, reminderMode });
+      if (ok && service && user && profile) {
+        const plan = await service.reminderPlan(user.id);
+        await syncScheduledReminders(plan, { ...profile, wakeTime, sleepTime, breakfastTime, lunchTime, dinnerTime }, true);
+        if (user.firebaseUid) void registerPushForUser(user.firebaseUid);
+      }
+    } else if (enableNotifs === false) {
+      await updateNotifications({ enabled: false, reminderMode });
+    }
     await complete({
       name: name.trim(),
+      ageRange,
       focusAreas: focus,
       wakeTime,
       sleepTime,
@@ -55,15 +73,35 @@ export default function Onboarding() {
         {step === 0 ? (
           <View style={{ flex: 1, justifyContent: 'flex-end', gap: 16, paddingBottom: 40 }}>
             <Text style={{ fontSize: 56 }}>☀️</Text>
-            <Title theme={theme}>Welcome to Daily</Title>
-            <Body theme={theme} style={{ fontSize: 18 }}>
-              Small habits. Better days.
-            </Body>
+            <Title theme={theme}>Welcome to DailyMe</Title>
+            <Body theme={theme} style={{ fontSize: 18 }}>Take care of yourself, one day at a time.</Body>
+            <Body theme={theme}>Understand your day. Build better habits. Feel better.</Body>
             <Button theme={theme} label="Get started" onPress={() => setStep(1)} />
           </View>
         ) : null}
 
         {step === 1 ? (
+          <View style={{ gap: 16 }}>
+            <Title theme={theme}>What should we call you?</Title>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+              placeholderTextColor={theme.faint}
+              accessibilityLabel="Your name"
+              style={{ backgroundColor: theme.surface, borderRadius: 18, padding: 16, fontSize: 18, color: theme.ink, minHeight: 52 }}
+            />
+            <Title theme={theme} style={{ fontSize: 22 }}>Age range</Title>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {AGE_RANGES.map((range) => (
+                <Chip key={range} theme={theme} label={range} selected={ageRange === range} onPress={() => setAgeRange(range)} />
+              ))}
+            </View>
+            <Nav theme={theme} onBack={() => setStep(0)} onNext={() => setStep(2)} />
+          </View>
+        ) : null}
+
+        {step === 2 ? (
           <View style={{ gap: 16 }}>
             <Title theme={theme}>What would you like to improve?</Title>
             <Body theme={theme}>Pick as many as you like. You can change this later.</Body>
@@ -79,39 +117,39 @@ export default function Onboarding() {
                 />
               ))}
             </View>
-            <Nav theme={theme} onBack={() => setStep(0)} onNext={() => setStep(2)} />
-          </View>
-        ) : null}
-
-        {step === 2 ? (
-          <View style={{ gap: 16 }}>
-            <Title theme={theme}>What time do you usually wake up?</Title>
-            <TimeStepper theme={theme} label="Wake time" value={wakeTime} onChange={setWake} />
             <Nav theme={theme} onBack={() => setStep(1)} onNext={() => setStep(3)} />
           </View>
         ) : null}
 
         {step === 3 ? (
           <View style={{ gap: 16 }}>
-            <Title theme={theme}>What time do you usually sleep?</Title>
-            <TimeStepper theme={theme} label="Sleep time" value={sleepTime} onChange={setSleep} />
+            <Title theme={theme}>What time do you usually wake up?</Title>
+            <TimeStepper theme={theme} label="Wake time" value={wakeTime} onChange={setWake} />
             <Nav theme={theme} onBack={() => setStep(2)} onNext={() => setStep(4)} />
           </View>
         ) : null}
 
         {step === 4 ? (
-          <View style={{ gap: 18 }}>
-            <Title theme={theme}>What are your usual meal times?</Title>
-            <TimeStepper theme={theme} label="Breakfast" value={breakfastTime} onChange={setBreakfast} />
-            <TimeStepper theme={theme} label="Lunch" value={lunchTime} onChange={setLunch} />
-            <TimeStepper theme={theme} label="Dinner" value={dinnerTime} onChange={setDinner} />
+          <View style={{ gap: 16 }}>
+            <Title theme={theme}>What time do you usually sleep?</Title>
+            <TimeStepper theme={theme} label="Sleep time" value={sleepTime} onChange={setSleep} />
             <Nav theme={theme} onBack={() => setStep(3)} onNext={() => setStep(5)} />
           </View>
         ) : null}
 
         {step === 5 ? (
+          <View style={{ gap: 18 }}>
+            <Title theme={theme}>What are your usual meal times?</Title>
+            <TimeStepper theme={theme} label="Breakfast" value={breakfastTime} onChange={setBreakfast} />
+            <TimeStepper theme={theme} label="Lunch" value={lunchTime} onChange={setLunch} />
+            <TimeStepper theme={theme} label="Dinner" value={dinnerTime} onChange={setDinner} />
+            <Nav theme={theme} onBack={() => setStep(4)} onNext={() => setStep(6)} />
+          </View>
+        ) : null}
+
+        {step === 6 ? (
           <View style={{ gap: 16 }}>
-            <Title theme={theme}>How often should Daily remind you?</Title>
+            <Title theme={theme}>How often should DailyMe remind you?</Title>
             {(['minimal', 'balanced', 'helpful'] as const).map((mode) => (
               <Pressable
                 key={mode}
@@ -136,33 +174,17 @@ export default function Onboarding() {
                 </Body>
               </Pressable>
             ))}
-            <Nav theme={theme} onBack={() => setStep(4)} onNext={() => setStep(6)} />
+            <Nav theme={theme} onBack={() => setStep(5)} onNext={() => setStep(7)} />
           </View>
         ) : null}
 
-        {step === 6 ? (
+        {step === 7 ? (
           <View style={{ flex: 1, justifyContent: 'flex-end', gap: 16, paddingBottom: 24 }}>
-            <Title theme={theme}>What should we call you?</Title>
-            <Body theme={theme}>Optional. Daily works either way.</Body>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={theme.faint}
-              accessibilityLabel="Your name"
-              style={{
-                backgroundColor: theme.surface,
-                borderRadius: 18,
-                padding: 16,
-                fontSize: 18,
-                color: theme.ink,
-                minHeight: 52,
-              }}
-            />
-            <Title theme={theme}>{"You're ready."}</Title>
-            <Body theme={theme}>Daily will gently check in and help you improve.</Body>
-            <Button theme={theme} label="Start my day" onPress={() => void finish()} />
-            <Button theme={theme} variant="ghost" label="Back" onPress={() => setStep(5)} />
+            <Title theme={theme}>Would you like DailyMe to remind you throughout the day?</Title>
+            <Body theme={theme}>Never required. You can change this anytime.</Body>
+            <Button theme={theme} label="Yes, enable reminders" onPress={() => void finish(true)} />
+            <Button theme={theme} variant="soft" label="Not now" onPress={() => void finish(false)} />
+            <Button theme={theme} variant="ghost" label="Back" onPress={() => setStep(6)} />
           </View>
         ) : null}
       </ScrollView>

@@ -8,14 +8,25 @@ import type {
   EntryType,
   ExerciseKind,
   HygieneKind,
+  LogEntry,
   MealKind,
   MoodKey,
   NotificationPreference,
   User,
   UserProfile,
 } from '../domain/types';
+import { firebaseConfigured } from '../firebase/client';
+import { signOutCloud } from '../firebase/auth';
+import { safeCloudSync, syncNotificationPrefs, syncProfileToCloud } from '../firebase/sync';
+import { clearSyncQueue, enqueueAndSync, flushCloudEntries } from '../firebase/queue';
+import { apiDelete, apiPost } from '../lib/apiClient';
+import { unregisterPushForUser } from '../lib/push';
 
 type Snapshot = Awaited<ReturnType<DailyService['todaySnapshot']>>;
+
+function isLogEntry(value: unknown): value is LogEntry {
+  return Boolean(value && typeof value === 'object' && 'id' in value && 'type' in value && 'payload' in value);
+}
 
 interface AppState {
   ready: boolean;
@@ -36,20 +47,33 @@ interface AppState {
   logSimple: (type: 'fruit' | 'vegetables' | 'junk' | 'sugary' | 'read' | 'relax') => Promise<void>;
   logHygiene: (kind: HygieneKind) => Promise<void>;
   logSmoking: () => Promise<void>;
+  logAlcohol: (drinks?: number) => Promise<void>;
   logMood: (key: MoodKey, note?: string) => Promise<void>;
   logCaffeine: (kind: CaffeineKind) => Promise<void>;
   logExercise: (kind: ExerciseKind, minutes: number) => Promise<void>;
   logMeal: (kind: MealKind, text: string) => Promise<void>;
+  logMealEstimate: (kind: MealKind, text: string, estimate: Record<string, unknown>) => Promise<void>;
   logSleep: (sleepTime: string, wakeTime: string) => Promise<void>;
   logScreen: (minutes: number) => Promise<void>;
   logBreak: (action: 'start' | 'complete', minutes?: number) => Promise<void>;
+  logNote: (text: string) => Promise<void>;
+  logActivity: (activity: string, description?: string) => Promise<void>;
+  logFocus: (payload: { title: string; duration: number; status?: string; action: 'start' | 'complete' }) => Promise<void>;
+  logWeather: (payload: { celsius?: number; condition?: string; feelingHot?: boolean }) => Promise<void>;
   deleteEntry: (id: string) => Promise<void>;
   updateProfile: (patch: Partial<UserProfile>) => Promise<void>;
   updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
   updateNotifications: (patch: Partial<NotificationPreference>) => Promise<void>;
   setEmail: (email: string) => Promise<void>;
+  linkCloudAccount: (patch: {
+    firebaseUid?: string;
+    email?: string;
+    authProvider: 'google' | 'password' | 'local';
+    emailVerified?: boolean;
+  }) => Promise<void>;
   exportData: () => Promise<string | undefined>;
   deleteAllData: () => Promise<void>;
+  signOutAccount: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -75,6 +99,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const notif = await store.getNotificationPref(user.id);
       const today = await service.todaySnapshot(user.id);
       set({ ready: true, booting: false, service, user, profile, settings, notif, today });
+      if (user.firebaseUid && firebaseConfigured()) {
+        void safeCloudSync(async () => {
+          await syncProfileToCloud(user.firebaseUid!, profile, user.email);
+          await flushCloudEntries(user.firebaseUid!, today.entries);
+        });
+      }
     } catch (error) {
       logInternalError('hydrate', error);
       set({ booting: false, ready: true, error: toUserMessage(error) });
@@ -108,6 +138,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       const today = await service.todaySnapshot(user.id);
       const boot = await service.bootstrap();
       set({ today, profile: boot.profile, settings: boot.settings, user: boot.user, error: null });
+      if (isLogEntry(result) && boot.user.firebaseUid) {
+        void enqueueAndSync(boot.user.firebaseUid, result);
+      } else if (boot.user.firebaseUid && boot.profile) {
+        void safeCloudSync(() => syncProfileToCloud(boot.user.firebaseUid!, boot.profile, boot.user.email));
+      }
       return result;
     } catch (error) {
       logInternalError('action', error);
@@ -132,6 +167,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   logSmoking: async () => {
     await get().run((api, id) => api.logSmoking(id, 1));
   },
+  logAlcohol: async (drinks = 1) => {
+    await get().run((api, id) => api.logAlcohol(id, drinks));
+  },
   logMood: async (key, note) => {
     await get().run((api, id) => api.logMood(id, key, note));
   },
@@ -144,6 +182,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   logMeal: async (kind, text) => {
     await get().run((api, id) => api.logMeal(id, kind, text));
   },
+  logMealEstimate: async (kind, text, estimate) => {
+    await get().run((api, id) => api.logMealEstimate(id, kind, text, estimate));
+  },
   logSleep: async (sleepTime, wakeTime) => {
     await get().run((api, id) => api.logSleep(id, sleepTime, wakeTime));
   },
@@ -152,6 +193,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   logBreak: async (action, minutes) => {
     await get().run((api, id) => api.logBreak(id, action, minutes));
+  },
+  logNote: async (text) => {
+    await get().run((api, id) => api.logNote(id, text));
+  },
+  logActivity: async (activity, description) => {
+    await get().run((api, id) => api.logActivity(id, activity, description));
+  },
+  logFocus: async (payload) => {
+    await get().run((api, id) => api.logFocus(id, payload));
+  },
+  logWeather: async (payload) => {
+    await get().run((api, id) => api.logWeather(id, payload));
   },
   deleteEntry: async (entryId) => {
     await get().run((api, id) => api.deleteEntry(id, entryId));
@@ -166,11 +219,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     await get().run(async (api, id) => {
       const next = await api.updateNotifications(id, patch);
       set({ notif: next });
+      const uid = get().user?.firebaseUid;
+      if (uid) {
+        void safeCloudSync(() => syncNotificationPrefs(uid, next));
+        void apiPost('/api/notifications/schedule', {
+          enabled: next.enabled,
+          quietHours: `${next.quietHoursStart}-${next.quietHoursEnd}`,
+          categories: next.categories,
+          timezone: get().profile?.timezone,
+        }).catch((error) => logInternalError('notif.schedule', error));
+      }
       return next;
     });
   },
   setEmail: async (email) => {
     await get().run((api, id) => api.setEmail(id, email));
+  },
+  linkCloudAccount: async (patch) => {
+    await get().run((api, id) => api.linkCloudAccount(id, patch));
+    const { user, profile, today } = get();
+    if (user?.firebaseUid && profile) {
+      void safeCloudSync(async () => {
+        await syncProfileToCloud(user.firebaseUid!, profile, user.email);
+        await flushCloudEntries(user.firebaseUid!, today?.entries ?? []);
+      });
+    }
   },
   exportData: async () => {
     const result = await get().run(async (api, id) => JSON.stringify(await api.exportData(id), null, 2));
@@ -179,8 +252,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteAllData: async () => {
     const { service, user } = get();
     if (!service || !user) return;
+    if (user.firebaseUid) {
+      try {
+        await unregisterPushForUser(user.firebaseUid);
+        await apiDelete('/api/account');
+      } catch (error) {
+        logInternalError('account.delete', error);
+      }
+      await signOutCloud();
+    }
     await service.deleteAllData(user.id);
     await clearPersistedStore();
+    await clearSyncQueue();
     set({
       user: null,
       profile: null,
@@ -191,6 +274,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       ready: false,
     });
     await get().hydrate();
+  },
+  signOutAccount: async () => {
+    const uid = get().user?.firebaseUid;
+    if (uid) await unregisterPushForUser(uid);
+    await signOutCloud();
+    await get().run((api, id) =>
+      api.linkCloudAccount(id, { firebaseUid: undefined, authProvider: 'local' }),
+    );
   },
   clearError: () => set({ error: null }),
 }));

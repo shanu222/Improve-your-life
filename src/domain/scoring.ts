@@ -194,6 +194,7 @@ function penalties(entries: LogEntry[], profile: UserProfile): number {
   }
   penalty += Math.min(6, countType(entries, 'junk') * 2);
   penalty += Math.min(4, countType(entries, 'sugary'));
+  penalty += Math.min(4, countType(entries, 'alcohol'));
   return Math.min(12, penalty);
 }
 

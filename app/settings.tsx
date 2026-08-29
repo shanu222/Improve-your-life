@@ -24,7 +24,7 @@ export default function SettingsScreen() {
         <Button theme={theme} label="About" onPress={() => router.push('/about')} />
         <Card theme={theme} style={{ gap: 8 }}>
           <Text style={{ color: theme.ink, fontWeight: '800' }}>Smoking reduction (optional)</Text>
-          <Body theme={theme}>Set a personal daily target if you want to cut down. Daily will never shame you.</Body>
+          <Body theme={theme}>Set a personal daily target if you want to cut down. DailyMe will never shame you.</Body>
           <Button
             theme={theme}
             variant="soft"

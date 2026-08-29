@@ -36,7 +36,7 @@ export const XP_RULES: { source: string; amount: number; reason: string; dailyCa
   { source: 'habit', amount: 10, reason: 'Custom habit', dailyCap: 40 },
 ];
 
-const BLOCKED = new Set(['smoking', 'junk', 'sugary']);
+const BLOCKED = new Set(['smoking', 'junk', 'sugary', 'alcohol']);
 
 export function xpForEntry(
   entry: LogEntry,
@@ -82,6 +82,10 @@ export function xpForEntry(
   } else if (entry.type === 'custom') {
     amount = 10;
     reason = 'Custom habit';
+    source = 'habit';
+  } else if (entry.type === 'focus' && entry.payload.status === 'completed') {
+    amount = 10;
+    reason = 'Focus session';
     source = 'habit';
   } else {
     return null;
