@@ -6,6 +6,8 @@ import { Body, Button, Card, EmptyState, Screen, Title } from '../../src/compone
 import type { Insight, WeeklyReport } from '../../src/domain/types';
 import { formatHoursMinutes } from '../../src/domain/sleep';
 import { GLASS_ML } from '../../src/domain/types';
+import { addDays, getLocalDate } from '../../src/domain/timezone';
+import { apiPost } from '../../src/lib/apiClient';
 import { useAppStore } from '../../src/store/appStore';
 import { useAppTheme } from '../../src/theme';
 
@@ -14,6 +16,7 @@ export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
   const service = useAppStore((s) => s.service);
   const user = useAppStore((s) => s.user);
+  const profile = useAppStore((s) => s.profile);
   const today = useAppStore((s) => s.today);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [weekly, setWeekly] = useState<WeeklyReport | null>(null);
@@ -22,7 +25,35 @@ export default function InsightsScreen() {
     if (!service || !user) return;
     void service.insights(user.id).then(setInsights);
     void service.generateWeeklyReport(user.id).then(setWeekly);
-  }, [service, user, today?.entries.length]);
+    if (!user.firebaseUid || !profile) return;
+    const end = getLocalDate(new Date(), profile.timezone);
+    const start = addDays(end, -13);
+    void service.range(user.id, start, end).then(async (entries) => {
+      const dates = [...new Set(entries.map((e) => e.localDate))].sort();
+      const days = dates.map((date) => ({ date, entries: entries.filter((e) => e.localDate === date) }));
+      try {
+        const remote = await apiPost<{ observations?: string[] }>('/api/ai/insight', {
+          days,
+          profile: {
+            waterGoalMl: profile.waterGoalMl,
+            sleepGoalMinutes: profile.sleepGoalMinutes,
+            wakeTime: profile.wakeTime,
+          },
+        });
+        if (remote.observations?.length) {
+          setInsights(
+            remote.observations.map((text, index) => ({
+              id: `cloud-${index}`,
+              text,
+              sampleSize: days.length,
+            })),
+          );
+        }
+      } catch {
+        /* keep local insights */
+      }
+    });
+  }, [service, user, profile, today?.entries.length]);
 
   return (
     <Screen theme={theme}>

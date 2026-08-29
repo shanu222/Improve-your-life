@@ -1,10 +1,33 @@
 import Constants from 'expo-constants';
 
+type GoogleExtra = {
+  googleClientId?: string;
+  googleWebClientId?: string;
+  googleAndroidClientId?: string;
+};
+
+function extra(): GoogleExtra {
+  return (Constants.expoConfig?.extra as GoogleExtra | undefined) ?? {};
+}
+
+export function googleWebClientId(): string {
+  return (
+    process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+    extra().googleWebClientId ||
+    extra().googleClientId ||
+    process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID ||
+    ''
+  );
+}
+
+export function googleAndroidClientId(): string {
+  return process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || extra().googleAndroidClientId || '';
+}
+
 export function googleClientId(): string {
-  const extra = Constants.expoConfig?.extra as { googleClientId?: string } | undefined;
-  return extra?.googleClientId || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
+  return googleWebClientId();
 }
 
 export function googleSignInAvailable(): boolean {
-  return googleClientId().length > 0;
+  return googleWebClientId().length > 0;
 }

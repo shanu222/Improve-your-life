@@ -12,7 +12,20 @@
           "package_name": "app.daily.wellness"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "710882308081-ooov9rapb55apfpkiel54a70eadrr8r3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "app.daily.wellness",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBlI951Ve6D7f5JcNzPJQmBGBavvYbk58o"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -69,7 +69,9 @@
       "typedRoutes": true
     },
     "extra": {
-      "googleClientId": "",
+      "googleClientId": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+      "googleWebClientId": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+      "googleAndroidClientId": "710882308081-ooov9rapb55apfpkiel54a70eadrr8r3.apps.googleusercontent.com",
       "apiBase": "https://improve-your-life-ten.vercel.app",
       "firebase": {
         "apiKey": "AIzaSyBlI951Ve6D7f5JcNzPJQmBGBavvYbk58o",

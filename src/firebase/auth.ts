@@ -13,18 +13,19 @@ import * as Google from 'expo-auth-session/providers/google';
 import { AppError } from '../domain/errors';
 import { authConflictMessage, firebaseAuthUserMessage } from '../domain/authConflicts';
 import { getFirebaseAuth, firebaseConfigured } from './client';
-import { googleClientId } from '../auth/google';
+import { googleAndroidClientId, googleWebClientId } from '../auth/google';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export { Google };
 
 export function useGoogleAuthRequest() {
+  const web = googleWebClientId();
+  const android = googleAndroidClientId();
   return Google.useIdTokenAuthRequest({
-    clientId: googleClientId() || undefined,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || googleClientId() || undefined,
+    clientId: web || undefined,
+    androidClientId: android || undefined,
+    webClientId: web || undefined,
   });
 }
 
@@ -38,8 +39,8 @@ export async function checkEmailMethods(email: string): Promise<string[]> {
   const auth = requireAuth();
   try {
     return await fetchSignInMethodsForEmail(auth, email.trim().toLowerCase());
-  } catch (error) {
-    throw new AppError(mapErr(error), 'AUTH');
+  } catch {
+    return [];
   }
 }
 

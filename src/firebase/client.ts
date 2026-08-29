@@ -1,7 +1,18 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, type Auth, type Persistence } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
+import { Platform } from 'react-native';
+
+function nativePersistence(): Persistence | undefined {
+  // Firebase only types this helper on the React Native entry, not Node/tsc.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const authModule = require('firebase/auth') as {
+    getReactNativePersistence?: (storage: typeof AsyncStorage) => Persistence;
+  };
+  return authModule.getReactNativePersistence?.(AsyncStorage);
+}
 
 type PublicFirebase = {
   apiKey: string;
@@ -54,7 +65,18 @@ export function getFirebaseApp(): FirebaseApp | null {
 export function getFirebaseAuth(): Auth | null {
   const instance = getFirebaseApp();
   if (!instance) return null;
-  auth ??= getAuth(instance);
+  if (!auth) {
+    if (Platform.OS === 'web') {
+      auth = getAuth(instance);
+    } else {
+      const persistence = nativePersistence();
+      try {
+        auth = persistence ? initializeAuth(instance, { persistence }) : getAuth(instance);
+      } catch {
+        auth = getAuth(instance);
+      }
+    }
+  }
   return auth;
 }
 

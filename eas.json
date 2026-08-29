@@ -16,7 +16,10 @@
         "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "dailyme-e11ef.firebasestorage.app",
         "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "710882308081",
         "EXPO_PUBLIC_FIREBASE_APP_ID": "1:710882308081:android:c576eeaa60e3539efb9e50",
-        "EXPO_PUBLIC_API_BASE": "https://improve-your-life-ten.vercel.app"
+        "EXPO_PUBLIC_API_BASE": "https://improve-your-life-ten.vercel.app",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "710882308081-oapvonsj28kb6u4bfhemvebf99onf96t.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "710882308081-ooov9rapb55apfpkiel54a70eadrr8r3.apps.googleusercontent.com"
       }
     },
     "production": {

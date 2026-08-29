@@ -42,6 +42,8 @@ DailyMe-debug.apk
 
 # secrets
 *-firebase-adminsdk-*.json
+*firebase-adminsdk*.json
+dailyme-e11ef-*.json
 serviceAccount*.json
 **/service-account*.json
 
