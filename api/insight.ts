@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { json, rateLimit, requireUser, userError, readJson } from '../_lib/http';
-import { completeJson } from '../_lib/ai';
-import { lifestyleObservations, INFORMATIONAL_FOOTER, nutrientPatternCopy } from '../../src/domain/observations';
-import type { LogEntry, UserProfile } from '../../src/domain/types';
+import { json, rateLimit, requireUser, userError, readJson } from './_lib/http';
+import { completeJson } from './_lib/ai';
+import { lifestyleObservations, INFORMATIONAL_FOOTER, nutrientPatternCopy } from '../src/domain/observations';
+import type { LogEntry, UserProfile } from '../src/domain/types';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return userError(res, 405);

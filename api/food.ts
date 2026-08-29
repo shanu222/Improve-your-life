@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { FOOD_VISION_SYSTEM, emptyVisionResult, toVisionResult, completeJson } from '../_lib/ai';
-import { json, rateLimit, requireUser, userError, readJson } from '../_lib/http';
+import { FOOD_VISION_SYSTEM, emptyVisionResult, toVisionResult, completeJson } from './_lib/ai';
+import { json, rateLimit, requireUser, userError, readJson } from './_lib/http';
 
 export const config = { api: { bodyParser: { sizeLimit: '6mb' } } };
 

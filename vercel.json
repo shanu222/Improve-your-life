@@ -4,22 +4,28 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "ignoreCommand": "exit 1",
   "git": {
     "deploymentEnabled": {
       "main": true,
-      "master": true
+      "master": false
     }
   },
   "rewrites": [
-    {
-      "source": "/((?!api/|_expo/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/food/analyze", "destination": "/api/food" },
+    { "source": "/api/ai/insight", "destination": "/api/insight" },
+    { "source": "/api/auth/send-code", "destination": "/api/codes?action=send" },
+    { "source": "/api/auth/verify-code", "destination": "/api/codes?action=verify" },
+    { "source": "/api/notifications/register", "destination": "/api/notify?action=register" },
+    { "source": "/api/notifications/device", "destination": "/api/notify?action=device" },
+    { "source": "/api/notifications/schedule", "destination": "/api/notify?action=schedule" },
+    { "source": "/api/notifications/dispatch", "destination": "/api/notify?action=dispatch" },
+    { "source": "/api/daily-summary", "destination": "/api/reports?kind=daily" },
+    { "source": "/api/weekly-summary", "destination": "/api/reports?kind=weekly" },
+    { "source": "/((?!api/|_expo/).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
-      "path": "/api/notifications/dispatch",
+      "path": "/api/notify",
       "schedule": "0 9 * * *"
     }
   ],

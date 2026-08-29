@@ -1,6 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getMessaging } from 'firebase-admin/messaging';
-import { adminReady, firestoreAdmin, getAdminApp, json, userError } from '../_lib/http';
+import { adminReady, firestoreAdmin, getAdminApp, json, readJson, requireUser, userError } from './_lib/http';
+
+function actionOf(req: VercelRequest): string {
+  const query = String(req.query.action ?? '');
+  const url = String(req.url ?? '');
+  if (query === 'register' || url.includes('register')) return 'register';
+  if (query === 'device' || url.includes('device')) return 'device';
+  if (query === 'schedule' || url.includes('schedule')) return 'schedule';
+  return 'dispatch';
+}
 
 function inQuietHours(nowMinutes: number, start: string, end: string): boolean {
   const [sh, sm] = start.split(':').map(Number);
@@ -13,6 +22,75 @@ function inQuietHours(nowMinutes: number, start: string, end: string): boolean {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const action = actionOf(req);
+  if (action === 'register') return registerDevice(req, res);
+  if (action === 'device') return disableDevice(req, res);
+  if (action === 'schedule') return saveSchedule(req, res);
+  return dispatch(req, res);
+}
+
+async function registerDevice(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return userError(res, 405);
+  const uid = await requireUser(req, res);
+  if (!uid) return;
+  const body = readJson<{ token?: string; platform?: string }>(req);
+  const token = String(body.token ?? '');
+  if (token.length < 10) return userError(res, 400, 'Something went wrong. Please try again.');
+  const id = token.slice(-24);
+  await firestoreAdmin()
+    .collection('users')
+    .doc(uid)
+    .collection('devices')
+    .doc(id)
+    .set({
+      token,
+      platform: body.platform ?? 'unknown',
+      updatedAt: new Date().toISOString(),
+      disabled: false,
+    });
+  return json(res, 200, { ok: true });
+}
+
+async function disableDevice(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'DELETE') return userError(res, 405);
+  const uid = await requireUser(req, res);
+  if (!uid) return;
+  const body = readJson<{ token?: string }>(req);
+  const token = String(body.token ?? '');
+  if (!token) return userError(res, 400, 'Something went wrong. Please try again.');
+  await firestoreAdmin().collection('users').doc(uid).collection('devices').doc(token.slice(-24)).delete();
+  return json(res, 200, { ok: true });
+}
+
+async function saveSchedule(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') return userError(res, 405);
+  const uid = await requireUser(req, res);
+  if (!uid) return;
+  const body = readJson<{
+    enabled?: boolean;
+    timezone?: string;
+    quietHours?: string;
+    categories?: Record<string, boolean>;
+  }>(req);
+  await firestoreAdmin()
+    .collection('users')
+    .doc(uid)
+    .collection('notification_preferences')
+    .doc('settings')
+    .set(
+      {
+        enabled: Boolean(body.enabled),
+        timezone: body.timezone ?? 'UTC',
+        quietHours: body.quietHours ?? '22:30-07:00',
+        ...(body.categories ?? {}),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+  return json(res, 200, { ok: true });
+}
+
+async function dispatch(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST' && req.method !== 'GET') return userError(res, 405);
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
