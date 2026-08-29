@@ -4,6 +4,13 @@
   "buildCommand": "npx expo export --platform web",
   "outputDirectory": "dist",
   "installCommand": "npm install",
+  "ignoreCommand": "exit 1",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "master": true
+    }
+  },
   "rewrites": [
     {
       "source": "/((?!api/|_expo/).*)",

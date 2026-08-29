@@ -1,0 +1,20 @@
+name: Deploy DailyMe to Vercel
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Vercel deploy hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "Add GitHub secret VERCEL_DEPLOY_HOOK if Vercel Git auto-deploy stays disconnected."
+            exit 0
+          fi
+          curl -fsS -X POST "$HOOK"
