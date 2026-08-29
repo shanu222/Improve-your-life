@@ -1,0 +1,38 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MemoryStore } from './memoryStore';
+import { tryOpenSqliteStore } from './sqliteStore';
+import type { Snapshot } from './types';
+import { emptySnapshot } from './types';
+
+const KEY = 'daily.snapshot.v1';
+
+export async function loadPersistedStore(): Promise<MemoryStore> {
+  try {
+    const sqlite = await tryOpenSqliteStore();
+    if (sqlite) return sqlite;
+  } catch {
+    // Fall through to AsyncStorage.
+  }
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    const data: Snapshot = raw ? { ...emptySnapshot(), ...JSON.parse(raw) } : emptySnapshot();
+    return new MemoryStore(data, async (next) => {
+      await AsyncStorage.setItem(KEY, JSON.stringify(next));
+    });
+  } catch {
+    return new MemoryStore(emptySnapshot(), async (next) => {
+      await AsyncStorage.setItem(KEY, JSON.stringify(next));
+    });
+  }
+}
+
+export async function clearPersistedStore(): Promise<void> {
+  await AsyncStorage.removeItem(KEY);
+  try {
+    const SQLite = await import('expo-sqlite');
+    const db = await SQLite.openDatabaseAsync('daily.db');
+    await db.runAsync('DELETE FROM snapshot_blob');
+  } catch {
+    // already cleared locally
+  }
+}
