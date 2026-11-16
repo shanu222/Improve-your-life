@@ -3,7 +3,7 @@
     "name": "DailyMe",
     "slug": "dailyme",
     "scheme": "dailyme",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -28,12 +28,17 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "package": "app.daily.wellness",
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ]
     },
     "web": {
@@ -69,7 +74,13 @@
           "cameraPermission": "DailyMe uses the camera only to estimate a meal. The photo is not stored."
         }
       ],
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-3753880887983252~5424402743"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

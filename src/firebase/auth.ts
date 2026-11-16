@@ -16,6 +16,7 @@ import { AppError } from '../domain/errors';
 import { authConflictMessage, firebaseAuthUserMessage } from '../domain/authConflicts';
 import { getFirebaseAuth, firebaseConfigured } from './client';
 import { googleWebClientId } from '../auth/google';
+import { settleWithTimeout } from '../lib/timeout';
 
 let googleConfigured = false;
 
@@ -140,17 +141,54 @@ export async function changeCloudPassword(currentPassword: string, nextPassword:
   }
 }
 
-export async function signOutCloud(): Promise<void> {
+export async function reauthenticateWithPassword(password: string): Promise<void> {
+  const auth = requireAuth();
+  const user = auth.currentUser;
+  if (!user?.email) throw new AppError('Sign in with email and password first.', 'AUTH');
+  if (!password.trim()) throw new AppError('Enter your current password to continue.', 'AUTH');
   try {
-    if (GoogleSignin.hasPreviousSignIn()) {
-      await GoogleSignin.signOut();
-    }
-  } catch {
-    /* local session still needs Firebase sign-out */
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password));
+  } catch (error) {
+    throw new AppError(mapErr(error), 'AUTH');
   }
+}
+
+export async function reauthenticateWithGoogle(): Promise<void | 'cancelled'> {
+  configureGoogleSignIn();
+  const auth = requireAuth();
+  const user = auth.currentUser;
+  if (!user) throw new AppError('Please sign in again, then try again.', 'AUTH');
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const result = await GoogleSignin.signIn();
+    if (result.type === 'cancelled') return 'cancelled';
+    const idToken = result.data?.idToken;
+    if (!idToken) throw new AppError('Google did not confirm your account. Try again.', 'AUTH');
+    await reauthenticateWithCredential(user, GoogleAuthProvider.credential(idToken));
+  } catch (error) {
+    if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_CANCELLED) return 'cancelled';
+    if (error instanceof AppError) throw error;
+    throw new AppError(mapErr(error), 'AUTH');
+  }
+}
+
+export async function signOutCloud(): Promise<void> {
+  await settleWithTimeout(
+    (async () => {
+      try {
+        if (GoogleSignin.hasPreviousSignIn()) {
+          await GoogleSignin.revokeAccess().catch(() => undefined);
+          await GoogleSignin.signOut();
+        }
+      } catch {
+        /* Firebase sign-out still required */
+      }
+    })(),
+    8000,
+  );
   const auth = getFirebaseAuth();
   if (!auth) return;
-  await signOut(auth);
+  await settleWithTimeout(signOut(auth), 8000);
 }
 
 export function cloudReady(): boolean {

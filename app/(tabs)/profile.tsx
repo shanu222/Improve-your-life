@@ -1,6 +1,8 @@
 import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdBanner } from '../../src/ads/BannerAd';
+import { showRewardedAd } from '../../src/ads/ads';
 import { Body, Button, Card, Screen, Title } from '../../src/components/ui';
 import { PasswordField } from '../../src/components/PasswordField';
 import { TimeStepper } from '../../src/components/TimeStepper';
@@ -22,6 +24,8 @@ export default function ProfileScreen() {
   const updateSettings = useAppStore((s) => s.updateSettings);
   const setEmail = useAppStore((s) => s.setEmail);
   const signOutAccount = useAppStore((s) => s.signOutAccount);
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [name, setName] = useState(profile?.name ?? '');
   const [email, setEmailField] = useState(user?.email ?? '');
   const [waterGlasses, setWaterGlasses] = useState(String(Math.round((profile?.waterGoalMl ?? 2000) / GLASS_ML)));
@@ -76,12 +80,34 @@ export default function ProfileScreen() {
           {user?.authProvider === 'password' ? (
             <ChangePassword theme={theme} />
           ) : null}
+          {signOutError ? <Body theme={theme}>{signOutError}</Body> : null}
           <Button
             theme={theme}
             variant="ghost"
-            label="Sign out"
+            label={signingOut ? 'Signing out…' : 'Sign out'}
+            disabled={signingOut}
             onPress={() => {
-              void signOutAccount().then(() => router.replace('/auth'));
+              const leave = async () => {
+                setSigningOut(true);
+                setSignOutError(null);
+                try {
+                  await signOutAccount();
+                  router.replace('/auth');
+                } catch (err) {
+                  setSignOutError(toUserMessage(err));
+                  if (!useAppStore.getState().user?.firebaseUid) router.replace('/auth');
+                } finally {
+                  setSigningOut(false);
+                }
+              };
+              if (Platform.OS === 'web') {
+                void leave();
+                return;
+              }
+              Alert.alert('Sign out?', 'You will need to sign in again to use DailyMe.', [
+                { text: 'Stay signed in', style: 'cancel' },
+                { text: 'Sign out', onPress: () => void leave() },
+              ]);
             }}
           />
         </Card>
@@ -92,6 +118,18 @@ export default function ProfileScreen() {
         <Button theme={theme} variant="ghost" label="Support" onPress={() => router.push('/support')} />
         <Button theme={theme} variant="ghost" label="Settings" onPress={() => router.push('/settings')} />
         <Button theme={theme} variant="ghost" label="About & disclaimer" onPress={() => router.push('/about')} />
+        {Platform.OS !== 'web' ? (
+          <Button
+            theme={theme}
+            variant="soft"
+            label="Support DailyMe: watch a short ad"
+            onPress={async () => {
+              const earned = await showRewardedAd();
+              Alert.alert(earned ? 'Thank you!' : 'No ad available', earned ? 'Thanks for supporting DailyMe.' : 'Please try again in a moment.');
+            }}
+          />
+        ) : null}
+        <AdBanner />
       </ScrollView>
     </Screen>
   );

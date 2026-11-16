@@ -89,6 +89,23 @@ describe('DailyService', () => {
     expect(today.habitLogs.some((l) => l.habitId === habit.id && l.completed)).toBe(true);
   });
 
+  it('clears the cloud account link on sign out', async () => {
+    const api = service();
+    const { user } = await api.bootstrap();
+    await api.linkCloudAccount(user.id, {
+      firebaseUid: 'uid-1',
+      email: 'a@b.com',
+      authProvider: 'google',
+      emailVerified: true,
+    });
+    const linked = (await api.bootstrap()).user;
+    expect(linked.firebaseUid).toBe('uid-1');
+    await api.linkCloudAccount(user.id, { firebaseUid: undefined, authProvider: 'local', emailVerified: false });
+    const signedOut = (await api.bootstrap()).user;
+    expect(signedOut.firebaseUid).toBeUndefined();
+    expect(signedOut.authProvider).toBe('local');
+  });
+
   it('exports and deletes only the owner data', async () => {
     const api = service();
     const { user } = await api.bootstrap();

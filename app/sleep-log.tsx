@@ -1,3 +1,4 @@
+import { maybeShowInterstitial } from '../src/ads/ads';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text } from 'react-native';
@@ -35,6 +36,7 @@ export default function SleepLog() {
           onPress={async () => {
             await logSleep(sleepTime, wakeTime);
             router.back();
+            void maybeShowInterstitial();
           }}
         />
       </ScrollView>

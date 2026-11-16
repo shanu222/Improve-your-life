@@ -50,6 +50,13 @@ export const LEGAL_DOCS: Record<LegalDocId, LegalDocument> = {
         ],
       },
       {
+        heading: 'Advertising (Google AdMob)',
+        body: [
+          'DailyMe shows ads served by Google AdMob. AdMob may use your device advertising ID and similar device and usage data to show and measure ads. Where required, we ask for your consent before personalised ads are shown.',
+          'Your wellness logs, notes, meals and health entries are never shared with advertisers. You can reset or opt out of your advertising ID in your Android settings (Settings > Google > Ads).',
+        ],
+      },
+      {
         heading: 'Photos and camera',
         body: [
           'If you take or choose a meal photo, it is sent only to generate a nutrition estimate and is then discarded. DailyMe does not permanently store food photographs on your device cloud backup for DailyMe, in Firebase Storage, or on our servers.',

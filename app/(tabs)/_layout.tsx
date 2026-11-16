@@ -1,11 +1,19 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Text, View } from 'react-native';
+import { firebaseConfigured } from '../../src/firebase/client';
+import { useAppStore } from '../../src/store/appStore';
 import { useAppTheme } from '../../src/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
+  const ready = useAppStore((s) => s.ready);
+  const uid = useAppStore((s) => s.user?.firebaseUid);
+
+  if (ready && firebaseConfigured() && !uid) {
+    return <Redirect href="/auth" />;
+  }
 
   return (
     <Tabs

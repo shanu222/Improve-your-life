@@ -2,6 +2,8 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AdBanner } from '../../src/ads/BannerAd';
+import { NativeAdCard } from '../../src/ads/NativeAdCard';
 import { Body, Button, Card, EmptyState, Screen, Title } from '../../src/components/ui';
 import type { Insight, WeeklyReport } from '../../src/domain/types';
 import { formatHoursMinutes } from '../../src/domain/sleep';
@@ -99,6 +101,7 @@ export default function InsightsScreen() {
           </Card>
         ) : null}
         <Button theme={theme} variant="soft" label="Open weekly report" onPress={() => router.push('/weekly')} />
+        <AdBanner />
       </ScrollView>
     </Screen>
   );

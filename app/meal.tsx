@@ -1,3 +1,4 @@
+import { maybeShowInterstitial } from '../src/ads/ads';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -180,6 +181,7 @@ export default function MealScreen() {
                 await logMeal(kind, text);
               }
               router.back();
+              void maybeShowInterstitial();
             } catch (error) {
               setSaveError(toUserMessage(error));
             } finally {

@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ProgressRing, ScoreNumber } from '../../src/components/ProgressRing';
+import { AdBanner } from '../../src/ads/BannerAd';
+import { NativeAdCard } from '../../src/ads/NativeAdCard';
 import { Body, Button, Card, EmptyState, Screen, Title, TonePill } from '../../src/components/ui';
 import { QUICK_ACTIONS } from '../../src/domain/defaults';
 import { wellbeingBars } from '../../src/domain/wellbeingBars';
@@ -274,6 +276,8 @@ export default function TodayScreen() {
         <Button theme={theme} label="✨ Improve my day" onPress={() => router.push('/coach')} />
         <Button theme={theme} variant="soft" label="Compare with recent days" onPress={() => router.push('/compare')} />
         <Button theme={theme} variant="ghost" label="End-of-day report" onPress={() => router.push('/day-report')} />
+        <NativeAdCard />
+        <AdBanner />
       </ScrollView>
       <Pressable
         onPress={() => router.push('/quick')}

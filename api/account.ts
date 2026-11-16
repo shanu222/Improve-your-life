@@ -29,9 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const uid = await requireUser(req, res);
   if (!uid) return;
 
-  for (const name of SUBS) {
-    await deleteCollection(uid, name);
-  }
+  await Promise.all(SUBS.map((name) => deleteCollection(uid, name)));
   await firestoreAdmin().collection('users').doc(uid).delete();
   try {
     await getAuth(getAdminApp()).deleteUser(uid);

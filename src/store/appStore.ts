@@ -17,11 +17,13 @@ import type {
 } from '../domain/types';
 import { firebaseConfigured } from '../firebase/client';
 import { signOutCloud } from '../firebase/auth';
+import { deleteCloudAccount } from '../firebase/accountCleanup';
 import { safeCloudSync, syncNotificationPrefs, syncProfileToCloud } from '../firebase/sync';
 import { clearSyncQueue, enqueueAndSync, flushCloudEntries } from '../firebase/queue';
-import { apiDelete, apiPost } from '../lib/apiClient';
-import { startFcmRuntime } from '../lib/fcmBootstrap';
+import { apiPost } from '../lib/apiClient';
+import { startFcmRuntime, stopFcmRuntime } from '../lib/fcmBootstrap';
 import { unregisterPushForUser } from '../lib/push';
+import { settleWithTimeout } from '../lib/timeout';
 
 type Snapshot = Awaited<ReturnType<DailyService['todaySnapshot']>>;
 
@@ -266,10 +268,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { service, user } = get();
     if (!service || !user) throw new Error('DailyMe is not ready.');
     if (user.firebaseUid) {
-      await unregisterPushForUser(user.firebaseUid);
-      await apiDelete('/api/account');
+      await settleWithTimeout(unregisterPushForUser(user.firebaseUid), 8000);
+      await deleteCloudAccount();
       await signOutCloud();
     }
+    stopFcmRuntime();
     await service.deleteAllData(user.id);
     await clearPersistedStore();
     await clearSyncQueue();
@@ -281,16 +284,25 @@ export const useAppStore = create<AppState>((set, get) => ({
       today: null,
       service: null,
       ready: false,
+      booting: false,
+      error: null,
     });
     await get().hydrate();
   },
   signOutAccount: async () => {
-    const uid = get().user?.firebaseUid;
-    if (uid) await unregisterPushForUser(uid);
+    const { service, user } = get();
+    if (!service || !user) throw new Error('DailyMe is not ready.');
+    if (user.firebaseUid) {
+      await settleWithTimeout(unregisterPushForUser(user.firebaseUid), 8000);
+    }
     await signOutCloud();
-    await get().run((api, id) =>
-      api.linkCloudAccount(id, { firebaseUid: undefined, authProvider: 'local' }),
-    );
+    stopFcmRuntime();
+    const signedOut = await service.linkCloudAccount(user.id, {
+      firebaseUid: undefined,
+      authProvider: 'local',
+      emailVerified: false,
+    });
+    set({ user: signedOut, error: null });
   },
   changePassword: async (currentPassword: string, nextPassword: string) => {
     const { changeCloudPassword } = await import('../firebase/auth');
